@@ -246,6 +246,7 @@
 <div id="app"></div>
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 /* ============== CONFIG ============== */
 const SUPABASE_URL = "https://ykxdsavvfngidltiprkz.supabase.co";
@@ -253,6 +254,10 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const TEAM_PIN = "7022"; // 필요시 변경
 const TABLE = "product_candidates";
 const BUCKET = "photos";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, storage: window.localStorage }
+});
 
 /* ============== INDEXEDDB (offline store) ============== */
 const DB_NAME = "sourcing_offline_db";
@@ -309,6 +314,14 @@ let state = {
   editingItem: null, // null = closed, object = editing/creating
   detailItem: null,
   syncing: false,
+  // 인증 관련
+  session: null,          // Supabase 로그인 세션 (null이면 로그아웃 상태)
+  isAdmin: false,
+  loginModalOpen: false,
+  loginEmail: "",
+  loginPassword: "",
+  loginError: "",
+  loginLoading: false,
 };
 
 const CATS = ["다운"];
@@ -439,11 +452,18 @@ function renderMain(){
           ${["전체",...CATS].map(c=>`<button class="chip ${state.catFilter===c?'active':''}" data-cat="${c}">${c}</button>`).join("")}
         </div>
       ` : ''}
+      ${state.session ? `
+        <div style="margin-top:10px;font-size:11.5px;color:var(--ink-soft);display:flex;justify-content:space-between;align-items:center;">
+          <span>${escapeHtml(state.session.user.email)}${state.isAdmin ? ' (관리자)' : ''}로 로그인됨</span>
+          <button id="logoutBtn" style="border:none;background:none;color:var(--accent);font-weight:600;font-size:11.5px;padding:2px 4px;">로그아웃</button>
+        </div>
+      ` : ''}
     </div>
     <div class="list-wrap">${listHtml}</div>
     <button class="fab" id="addBtn"><span style="margin-top:-2px;">+</span></button>
     ${state.sheetOpen ? formSheetHtml() : ''}
     ${state.detailItem ? detailSheetHtml() : ''}
+    ${state.loginModalOpen ? loginModalHtml() : ''}
   `;
 }
 
@@ -477,6 +497,7 @@ function cardHtml(item){
           ${item.컬러 ? `<div class="meta-item"><b>${escapeHtml(item.컬러)}</b></div>` : ''}
           ${item.원가위안 ? `<div class="meta-item">¥<b>${escapeHtml(item.원가위안)}</b></div>` : ''}
           ${item.최소오더수량 ? `<div class="meta-item">MOQ <b>${escapeHtml(item.최소오더수량)}</b></div>` : ''}
+        </div>
         <div class="card-sync ${syncClass}">
           <span class="sync-dot"></span>${syncLabel}
         </div>
@@ -505,6 +526,8 @@ function bindMain(){
     location.reload();
   });
   document.getElementById("syncBtn").addEventListener("click", runSync);
+  const logoutBtn = document.getElementById("logoutBtn");
+  if(logoutBtn) logoutBtn.addEventListener("click", doLogout);
   document.querySelectorAll(".card").forEach(c=>{
     c.addEventListener("click", ()=>{
       const item = state.items.find(i=>i.local_id === c.dataset.id);
@@ -784,11 +807,19 @@ async function saveItem(){
 }
 
 /* ============== DETAIL SHEET ============== */
+function canEditItem(item){
+  // 아직 서버에 동기화 안 된 새 항목(remote_id 없음)은 누구나(작성 중인 본인) 수정 가능
+  if(!item.remote_id) return true;
+  if(!state.session) return false; // 로그인 안 했으면 서버에 올라간 항목은 수정 불가
+  return item.created_by === state.session.user.id || state.isAdmin;
+}
+
 function detailSheetHtml(){
   const it = state.detailItem;
   const photosHtml = (it.local_photos||[]).map(p=>`<img src="${p}">`).join("");
   const krw = yuanToKrw(it.원가위안);
   const moqTotal = (krw && it.최소오더수량) ? krw * Number(it.최소오더수량) : null;
+  const editable = canEditItem(it);
   const rows = [
     ["거래처명", it.거래처명], ["상품코드", it.상품코드],
     ["원단 소재", it.원단소재명],
@@ -808,7 +839,7 @@ function detailSheetHtml(){
     <div class="sheet-header">
       <button class="sheet-btn cancel" id="detailClose">닫기</button>
       <div class="sheet-title">${escapeHtml(it.상품코드||'상품 상세')}</div>
-      <button class="sheet-btn save" id="detailEditBtn">수정</button>
+      ${editable ? `<button class="sheet-btn save" id="detailEditBtn">수정</button>` : `<div style="width:40px;"></div>`}
     </div>
     <div class="sheet-body">
       <div class="card-cat" style="display:inline-block;margin-bottom:14px;">${escapeHtml(it.카테고리||'기타')}</div>
@@ -819,6 +850,7 @@ function detailSheetHtml(){
       ${it.메모 ? `<div class="detail-memo">${escapeHtml(it.메모)}</div>` : ''}
       <div style="margin-top:16px;font-size:12px;color:var(--ink-soft);">
         ${it.synced ? '✓ Supabase에 동기화됨' : '⏳ 동기화 대기 중'}
+        ${!editable ? ' · 다른 사람이 등록한 항목 (읽기 전용)' : ''}
       </div>
     </div>
   </div>
@@ -831,48 +863,156 @@ function bindDetailSheet(){
   document.getElementById("detailBackdrop").addEventListener("click", ()=>{
     state.detailItem = null; render();
   });
-  document.getElementById("detailEditBtn").addEventListener("click", ()=>{
-    openEditItem(state.detailItem);
-  });
+  const editBtn = document.getElementById("detailEditBtn");
+  if(editBtn){
+    editBtn.addEventListener("click", ()=>{
+      openEditItem(state.detailItem);
+    });
+  }
 }
 
 /* ============== SYNC TO SUPABASE ============== */
+/* ============== AUTH ============== */
+async function restoreSession(){
+  const { data } = await sb.auth.getSession();
+  state.session = data.session || null;
+  if(state.session){
+    await refreshIsAdmin();
+  }
+}
+
+async function refreshIsAdmin(){
+  if(!state.session) { state.isAdmin = false; return; }
+  try{
+    const { data, error } = await sb.from("admins").select("user_id").eq("user_id", state.session.user.id).maybeSingle();
+    state.isAdmin = !!data && !error;
+  } catch(err){
+    state.isAdmin = false;
+  }
+}
+
+function openLoginModal(){
+  state.loginModalOpen = true;
+  state.loginEmail = "";
+  state.loginPassword = "";
+  state.loginError = "";
+  render();
+}
+function closeLoginModal(){
+  state.loginModalOpen = false;
+  render();
+}
+
+async function doLogin(){
+  if(!state.loginEmail || !state.loginPassword){
+    state.loginError = "이메일과 비밀번호를 입력해주세요";
+    render();
+    return;
+  }
+  state.loginLoading = true;
+  render();
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: state.loginEmail,
+    password: state.loginPassword
+  });
+  state.loginLoading = false;
+  if(error){
+    state.loginError = "로그인 실패: 이메일 또는 비밀번호를 확인해주세요";
+    render();
+    return;
+  }
+  state.session = data.session;
+  await refreshIsAdmin();
+  state.loginModalOpen = false;
+  render();
+  toast("로그인되었습니다. 동기화를 시작합니다");
+  runSync();
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  state.session = null;
+  state.isAdmin = false;
+  render();
+  toast("로그아웃되었습니다");
+}
+
+function loginModalHtml(){
+  return `
+  <div class="sheet-backdrop open" id="loginBackdrop"></div>
+  <div class="sheet open" id="loginSheet" style="max-height:60%; top:auto;">
+    <div class="sheet-header">
+      <button class="sheet-btn cancel" id="loginCancel">취소</button>
+      <div class="sheet-title">동기화 로그인</div>
+      <div style="width:40px;"></div>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label>이메일</label>
+        <input id="loginEmailInput" type="email" value="${escapeAttr(state.loginEmail)}" placeholder="you@panicale.com" autocapitalize="off" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>비밀번호</label>
+        <input id="loginPasswordInput" type="password" value="${escapeAttr(state.loginPassword)}" placeholder="비밀번호" autocomplete="current-password">
+      </div>
+      ${state.loginError ? `<div style="color:var(--warn);font-size:13px;margin-bottom:10px;">${escapeHtml(state.loginError)}</div>` : ''}
+      <button class="cat-btn active" id="loginSubmitBtn" style="width:100%;padding:13px;font-size:15px;" ${state.loginLoading?'disabled':''}>
+        ${state.loginLoading ? '로그인 중…' : '로그인하고 동기화'}
+      </button>
+      <div style="font-size:12px;color:var(--ink-soft);margin-top:14px;text-align:center;">
+        계정이 없으면 관리자에게 문의해주세요
+      </div>
+    </div>
+  </div>
+  `;
+}
+function bindLoginModal(){
+  document.getElementById("loginCancel").addEventListener("click", closeLoginModal);
+  document.getElementById("loginBackdrop").addEventListener("click", closeLoginModal);
+  document.getElementById("loginEmailInput").addEventListener("input", (e)=>{ state.loginEmail = e.target.value; });
+  document.getElementById("loginPasswordInput").addEventListener("input", (e)=>{ state.loginPassword = e.target.value; });
+  document.getElementById("loginSubmitBtn").addEventListener("click", doLogin);
+}
+
+/* ============== SYNC TO SUPABASE (양방향, 인증 필요) ============== */
 async function runSync(){
   if(state.syncing) return;
   if(!navigator.onLine){
     toast("오프라인 상태입니다. 인터넷 연결 후 다시 시도하세요");
     return;
   }
-  const pending = state.items.filter(i=>!i.synced);
-  if(pending.length === 0){
-    toast("동기화할 항목이 없습니다");
+  if(!state.session){
+    openLoginModal();
     return;
   }
+
   state.syncing = true;
   render();
 
   let successCount = 0, failCount = 0;
 
+  // 1) PUSH: 로컬에서 변경된 항목 업로드
+  const pending = state.items.filter(i=>!i.synced);
   for(const item of pending){
     try{
-      // upload photos first
-      const photoUrls = [];
+      const isOwner = !item.remote_id || item.created_by === state.session.user.id;
+      const isAllowed = isOwner || state.isAdmin;
+      if(item.remote_id && !isAllowed){
+        // 본인이 만든 게 아니고 관리자도 아니면 업로드(수정) 스킵
+        failCount++;
+        continue;
+      }
+
+      const photoUrls = item.사진url배열_existing || [];
       for(let i=0;i<(item.local_photos||[]).length;i++){
         const dataUrl = item.local_photos[i];
+        if(!dataUrl.startsWith("data:")) continue; // 이미 업로드된 URL은 건너뜀
         const blob = await (await fetch(dataUrl)).blob();
         const path = `${item.local_id}/${i}.jpg`;
-        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
-          method:"POST",
-          headers:{
-            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-            "apikey": SUPABASE_ANON_KEY,
-            "Content-Type":"image/jpeg",
-            "x-upsert":"true"
-          },
-          body: blob
-        });
-        if(uploadRes.ok || uploadRes.status===200 || uploadRes.status===201){
-          photoUrls.push(`${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`);
+        const { error: upErr } = await sb.storage.from(BUCKET).upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+        if(!upErr){
+          const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
+          photoUrls.push(pub.publicUrl);
         }
       }
 
@@ -885,52 +1025,70 @@ async function runSync(){
         메모: item.메모,
         사진url배열: photoUrls
       };
+      if(!item.remote_id) payload.created_by = state.session.user.id;
 
-      let res;
+      let result;
       if(item.remote_id){
-        res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${item.remote_id}`, {
-          method:"PATCH",
-          headers:{
-            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-            "apikey": SUPABASE_ANON_KEY,
-            "Content-Type":"application/json",
-            "Prefer":"return=representation"
-          },
-          body: JSON.stringify(payload)
-        });
+        result = await sb.from(TABLE).update(payload).eq("id", item.remote_id).select();
       } else {
-        res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
-          method:"POST",
-          headers:{
-            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-            "apikey": SUPABASE_ANON_KEY,
-            "Content-Type":"application/json",
-            "Prefer":"return=representation"
-          },
-          body: JSON.stringify(payload)
-        });
+        result = await sb.from(TABLE).insert(payload).select();
       }
 
-      if(res.ok){
-        const data = await res.json();
+      if(!result.error){
         item.synced = true;
-        item.remote_id = data[0]?.id || item.remote_id;
+        item.remote_id = result.data[0]?.id || item.remote_id;
+        item.created_by = result.data[0]?.created_by || item.created_by;
         await dbPut(item);
         successCount++;
       } else {
+        console.error("동기화 실패:", item.상품코드, result.error);
         failCount++;
       }
     } catch(err){
+      console.error("동기화 예외:", item.상품코드, err);
       failCount++;
     }
+  }
+
+  // 2) PULL: 서버 전체 데이터를 로컬로 받아와 병합 (내가 로컬에서만 수정 중인 건 덮지 않음)
+  try{
+    const { data: remoteRows, error: pullErr } = await sb.from(TABLE).select("*");
+    if(!pullErr && remoteRows){
+      for(const row of remoteRows){
+        const existingLocal = state.items.find(i=>i.remote_id === row.id);
+        if(existingLocal && !existingLocal.synced){
+          continue; // 로컬에 아직 안 올린 변경사항이 있으면 덮지 않음
+        }
+        const mapped = {
+          local_id: existingLocal ? existingLocal.local_id : uid(),
+          remote_id: row.id,
+          created_by: row.created_by,
+          카테고리: row.카테고리, 거래처명: row.거래처명, 상품코드: row.상품코드,
+          충전재종류: row.충전재종류, 필파워: row.필파워,
+          충전재중량: row.충전재중량, 완제품중량: row.완제품중량,
+          원단소재명: row.원단소재명, 원단단가: row.원단단가,
+          컬러: row.컬러, 원가위안: row.원가위안, 최소오더수량: row.최소오더수량,
+          메모: row.메모,
+          local_photos: row.사진url배열 || [],
+          사진url배열_existing: row.사진url배열 || [],
+          synced: true,
+          created_at: row.created_at,
+        };
+        await dbPut(mapped);
+        const idx = state.items.findIndex(i=>i.remote_id === row.id);
+        if(idx >= 0) state.items[idx] = mapped; else state.items.push(mapped);
+      }
+    }
+  } catch(err){
+    // pull 실패해도 push 결과는 유지
   }
 
   state.syncing = false;
   render();
   if(failCount===0){
-    toast(`${successCount}건 동기화 완료`);
+    toast(`${successCount}건 업로드, 전체 데이터 갱신 완료`);
   } else {
-    toast(`${successCount}건 성공, ${failCount}건 실패 — 다시 시도해주세요`);
+    toast(`${successCount}건 성공, ${failCount}건 실패(권한 없음 포함)`);
   }
 }
 
@@ -977,6 +1135,7 @@ function setupPullToRefresh(){
 async function init(){
   await openDB();
   state.items = await dbGetAll();
+  await restoreSession();
   render();
   window.addEventListener("online", ()=>{ render(); refreshExchangeRate(); });
   window.addEventListener("offline", ()=>render());
@@ -990,6 +1149,7 @@ render = function(){
   _origRender();
   if(state.authed && state.sheetOpen) bindFormSheet();
   if(state.authed && state.detailItem) bindDetailSheet();
+  if(state.authed && state.loginModalOpen) bindLoginModal();
 };
 
 init();
