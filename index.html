@@ -982,7 +982,7 @@ async function runSync(){
         const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
           method:"POST",
           headers:{
-            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
             "apikey": SUPABASE_ANON_KEY,
             "Content-Type":"image/jpeg",
             "x-upsert":"true"
@@ -1010,7 +1010,7 @@ async function runSync(){
         res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${item.remote_id}`, {
           method:"PATCH",
           headers:{
-            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
             "apikey": SUPABASE_ANON_KEY,
             "Content-Type":"application/json",
             "Prefer":"return=representation"
@@ -1021,7 +1021,7 @@ async function runSync(){
         res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
           method:"POST",
           headers:{
-            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
             "apikey": SUPABASE_ANON_KEY,
             "Content-Type":"application/json",
             "Prefer":"return=representation"
