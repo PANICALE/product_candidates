@@ -510,8 +510,8 @@ function renderMain(){
       ` : ''}
     </div>
     <div class="list-wrap">${listHtml}</div>
-    <button class="fab" id="addBtn"><span style="margin-top:-2px;">+</span></button>
-    <button id="trashFab" style="position:fixed;left:20px;bottom:calc(24px + var(--safe-bottom));z-index:30;width:44px;height:44px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--line);font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.1);">🗑</button>
+    ${!state.selectMode ? `<button class="fab" id="addBtn"><span style="margin-top:-2px;">+</span></button>` : ''}
+    ${!state.selectMode ? `<button id="trashFab" style="position:fixed;left:20px;bottom:calc(24px + var(--safe-bottom));z-index:30;width:44px;height:44px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--line);font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.1);">🗑</button>` : ''}
     ${state.sheetOpen ? formSheetHtml() : ''}
     ${state.detailItem ? detailSheetHtml() : ''}
     ${state.trashOpen ? trashSheetHtml() : ''}
@@ -582,7 +582,8 @@ function bindMain(){
       render();
     });
   });
-  document.getElementById("addBtn").addEventListener("click", openNewItem);
+  const addBtn = document.getElementById("addBtn");
+  if(addBtn) addBtn.addEventListener("click", openNewItem);
   document.getElementById("brandRefreshBtn").addEventListener("click", ()=>{
     location.reload();
   });
@@ -1118,24 +1119,51 @@ function setupPhotoDrag(){
 /* ============== 왼→오 스와이프 뒤로가기 ============== */
 function setupSwipeBack(){
   let startX = 0, startY = 0, swiping = false;
+  const getSheet = ()=> document.querySelector(".sheet.open");
+
   document.addEventListener("touchstart", (e)=>{
-    if(!state.detailItem && !state.sheetOpen) return;
-    if(e.touches[0].clientX > 40) return;
+    if(!state.detailItem && !state.sheetOpen && !state.trashOpen) return;
+    if(e.touches[0].clientX > 60) return;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     swiping = true;
+    const sheet = getSheet();
+    if(sheet) sheet.style.transition = "none";
   }, {passive:true});
+
   document.addEventListener("touchmove", (e)=>{
     if(!swiping) return;
     const dx = e.touches[0].clientX - startX;
     const dy = Math.abs(e.touches[0].clientY - startY);
-    if(dx > 60 && dy < 50){
-      swiping = false;
-      if(state.sheetOpen){ closeSheet(); }
-      else if(state.detailItem){ state.detailItem = null; render(); }
+    if(dy > dx) { swiping = false; return; }
+    if(dx < 0) return;
+    const sheet = getSheet();
+    if(sheet) sheet.style.transform = `translateX(${dx}px)`;
+  }, {passive:true});
+
+  document.addEventListener("touchend", (e)=>{
+    if(!swiping){ swiping = false; return; }
+    swiping = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    const sheet = getSheet();
+    if(dx > 80){
+      if(sheet){
+        sheet.style.transition = "transform .25s cubic-bezier(.32,.72,0,1)";
+        sheet.style.transform = "translateX(100%)";
+        setTimeout(()=>{
+          if(state.trashOpen){ state.trashOpen = false; }
+          else if(state.sheetOpen){ state.sheetOpen = false; state.editingItem = null; }
+          else if(state.detailItem){ state.detailItem = null; }
+          render();
+        }, 220);
+      }
+    } else {
+      if(sheet){
+        sheet.style.transition = "transform .2s cubic-bezier(.32,.72,0,1)";
+        sheet.style.transform = "translateX(0)";
+      }
     }
   }, {passive:true});
-  document.addEventListener("touchend", ()=>{ swiping = false; }, {passive:true});
 }
 
 /* ============== 선택 모드 ============== */
@@ -1143,7 +1171,7 @@ function selectBarHtml(){
   return `
     ${state.statusDropdownOpen ? `
       <div class="status-dropdown" id="statusDropdown">
-        ${STATUSES.map(s=>`<button class="status-dropdown-item" data-setstatus="${s}">${s}으로 변경</button>`).join("")}
+        ${STATUSES.map(s=>`<button class="status-dropdown-item" data-setstatus="${s}">${s}</button>`).join("")}
       </div>
     ` : ''}
     <div class="select-bar">
