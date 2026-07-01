@@ -118,26 +118,72 @@
     background:var(--bg-elevated);border:1px solid var(--line);border-radius:var(--radius);
     overflow:hidden;display:flex;gap:0;
   }
-  .card-thumb{
-    width:96px;min-width:96px;background:var(--accent-soft);
-    display:flex;align-items:center;justify-content:center;overflow:hidden;
-  }
-  .card-thumb img{width:100%;height:100%;object-fit:cover;}
-  .card-thumb-empty{color:var(--accent);font-size:11px;font-weight:600;text-align:center;padding:8px;}
+
   .card-body{flex:1;padding:12px 14px;min-width:0;}
   .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .card-vendor{font-size:12px;color:var(--ink-soft);font-weight:600;}
-  .card-code{font-size:16px;font-weight:700;letter-spacing:-0.01em;margin-top:1px;}
+  .card-code{font-size:15px;font-weight:700;letter-spacing:0;margin-top:2px;line-height:1.2;}
   .card-cat{
     font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
     color:var(--accent);background:var(--accent-soft);padding:3px 7px;border-radius:5px;white-space:nowrap;
   }
-  .card-meta{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;}
-  .meta-item{font-size:12px;color:var(--ink-soft);}
-  .meta-item b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;}
+  .card-meta{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center;}
+  .meta-item{font-size:12px;color:var(--ink-soft);display:flex;align-items:center;gap:3px;}
+  .meta-item b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;font-size:12px;}
   .card-sync{margin-top:8px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:5px;}
   .card-sync.pending{color:var(--warn);}
   .card-sync.synced{color:var(--ok);}
+
+  /* 상태 뱃지 */
+  .status-badge{
+    font-size:10px;font-weight:700;letter-spacing:0.06em;
+    color:var(--accent);padding:3px 7px;border-radius:5px;white-space:nowrap;
+    display:inline-block;
+  }
+  .status-대기{background:#F0F0EE;color:#6B6358;}
+  .status-보류{background:#FEF3C7;color:#B45309;}
+  .status-확정{background:#D1FAE5;color:#065F46;}
+  .status-탈락{background:#FEE2E2;color:#991B1B;}
+
+  /* 상태 선택 세그먼트 (상세화면) */
+  .status-segment{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .status-seg-btn{
+    flex:1;min-width:60px;padding:9px 4px;border-radius:10px;font-size:13px;font-weight:700;
+    border:1.5px solid var(--line);background:var(--bg-elevated);color:var(--ink-soft);
+    cursor:pointer;text-align:center;
+  }
+  .status-seg-btn.active-대기{background:#F0E8DC;color:#8B6F4E;border-color:#8B6F4E;}
+  .status-seg-btn.active-보류{background:#FEF3C7;color:#B45309;border-color:#B45309;}
+  .status-seg-btn.active-확정{background:#D1FAE5;color:#065F46;border-color:#065F46;}
+  .status-seg-btn.active-탈락{background:#FEE2E2;color:#991B1B;border-color:#991B1B;}
+
+  /* 사진 3:4 비율 */
+  .card-thumb{
+    width:90px;min-width:90px;background:var(--accent-soft);
+    display:flex;align-items:stretch;justify-content:center;overflow:hidden;
+    aspect-ratio:3/4;align-self:stretch;
+  }
+  .card-thumb img{width:100%;height:100%;object-fit:cover;}
+  .card-thumb-empty{color:var(--accent);font-size:11px;font-weight:600;text-align:center;padding:8px;align-self:center;}
+
+  /* 폼 사진 3:4 */
+  .photo-thumb{
+    width:80px;height:107px;border-radius:10px;overflow:hidden;position:relative;background:var(--accent-soft);
+    touch-action:none;
+  }
+  .photo-thumb img{width:100%;height:100%;object-fit:cover;}
+  .photo-thumb.dragging{opacity:0.35;border:2px dashed var(--accent);transform:scale(0.95);}
+  .photo-thumb.drag-over{border:2.5px solid var(--ok);box-shadow:0 0 0 3px var(--ok-soft);transform:scale(1.05);}
+  .photo-add{
+    width:80px;height:107px;border-radius:10px;border:1.5px dashed var(--line);
+    background:none;color:var(--ink-soft);font-size:22px;display:flex;align-items:center;justify-content:center;
+  }
+
+  /* 상세 사진 갤러리 3:4 */
+  .detail-photos{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:4px;}
+  .detail-photos img{
+    width:160px;height:213px;object-fit:cover;border-radius:12px;flex-shrink:0;
+  }
 
   .empty-state{
     text-align:center;padding:80px 24px;color:var(--ink-soft);
@@ -201,19 +247,6 @@
 
   /* photo picker */
   .photo-row{display:flex;gap:8px;flex-wrap:wrap;}
-  .photo-thumb{
-    width:84px;height:84px;border-radius:10px;overflow:hidden;position:relative;background:var(--accent-soft);
-  }
-  .photo-thumb img{width:100%;height:100%;object-fit:cover;}
-  .photo-remove{
-    position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;
-    background:rgba(0,0,0,0.55);color:#fff;border:none;font-size:13px;line-height:1;
-    display:flex;align-items:center;justify-content:center;
-  }
-  .photo-add{
-    width:84px;height:84px;border-radius:10px;border:1.5px dashed var(--line);
-    background:none;color:var(--ink-soft);font-size:22px;display:flex;align-items:center;justify-content:center;
-  }
 
   .delete-btn{
     width:100%;padding:13px;margin-top:8px;border-radius:10px;border:1px solid #F0CFC0;
@@ -221,11 +254,6 @@
   }
 
   /* ---------- DETAIL VIEW ---------- */
-  .detail-photos{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:4px;}
-  .detail-photos img{
-    width:140px;height:140px;object-fit:cover;border-radius:12px;flex-shrink:0;
-    background:var(--accent-soft);
-  }
   .detail-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);}
   .detail-row:last-child{border-bottom:none;}
   .detail-label{font-size:13px;color:var(--ink-soft);}
@@ -246,7 +274,6 @@
 <div id="app"></div>
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 /* ============== CONFIG ============== */
 const SUPABASE_URL = "https://ykxdsavvfngidltiprkz.supabase.co";
@@ -254,10 +281,6 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const TEAM_PIN = "7022"; // 필요시 변경
 const TABLE = "product_candidates";
 const BUCKET = "photos";
-
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, storage: window.localStorage }
-});
 
 /* ============== INDEXEDDB (offline store) ============== */
 const DB_NAME = "sourcing_offline_db";
@@ -309,22 +332,16 @@ let state = {
   items: [],
   search: "",
   catFilter: "전체",
+  statusFilter: "전체",
   filtersOpen: false,
   sheetOpen: false,
   editingItem: null, // null = closed, object = editing/creating
   detailItem: null,
   syncing: false,
-  // 인증 관련
-  session: null,          // Supabase 로그인 세션 (null이면 로그아웃 상태)
-  isAdmin: false,
-  loginModalOpen: false,
-  loginEmail: "",
-  loginPassword: "",
-  loginError: "",
-  loginLoading: false,
 };
 
 const CATS = ["다운"];
+const STATUSES = ["대기","보류","확정","탈락"];
 
 function uid(){ return 'l_' + Date.now() + '_' + Math.random().toString(36).slice(2,8); }
 
@@ -406,6 +423,9 @@ function filteredItems(){
   if(state.catFilter !== "전체"){
     list = list.filter(i=>i.카테고리 === state.catFilter);
   }
+  if(state.statusFilter !== "전체"){
+    list = list.filter(i=>(i.상태||"대기") === state.statusFilter);
+  }
   if(state.search.trim()){
     const q = state.search.trim().toLowerCase();
     list = list.filter(i=>
@@ -449,13 +469,12 @@ function renderMain(){
       </div>
       ${state.filtersOpen ? `
         <div class="filter-chips">
+          <span style="font-size:11px;font-weight:700;color:var(--ink-soft);align-self:center;">카테고리</span>
           ${["전체",...CATS].map(c=>`<button class="chip ${state.catFilter===c?'active':''}" data-cat="${c}">${c}</button>`).join("")}
         </div>
-      ` : ''}
-      ${state.session ? `
-        <div style="margin-top:10px;font-size:11.5px;color:var(--ink-soft);display:flex;justify-content:space-between;align-items:center;">
-          <span>${escapeHtml(state.session.user.email)}${state.isAdmin ? ' (관리자)' : ''}로 로그인됨</span>
-          <button id="logoutBtn" style="border:none;background:none;color:var(--accent);font-weight:600;font-size:11.5px;padding:2px 4px;">로그아웃</button>
+        <div class="filter-chips" style="margin-top:6px;">
+          <span style="font-size:11px;font-weight:700;color:var(--ink-soft);align-self:center;">상태</span>
+          ${["전체",...STATUSES].map(s=>`<button class="chip ${state.statusFilter===s?'active':''}" data-status="${s}">${s}</button>`).join("")}
         </div>
       ` : ''}
     </div>
@@ -463,7 +482,6 @@ function renderMain(){
     <button class="fab" id="addBtn"><span style="margin-top:-2px;">+</span></button>
     ${state.sheetOpen ? formSheetHtml() : ''}
     ${state.detailItem ? detailSheetHtml() : ''}
-    ${state.loginModalOpen ? loginModalHtml() : ''}
   `;
 }
 
@@ -491,12 +509,15 @@ function cardHtml(item){
             <div class="card-vendor">${escapeHtml(item.거래처명||'거래처 미입력')}</div>
             <div class="card-code">${escapeHtml(item.상품코드||'코드 미입력')}</div>
           </div>
-          <div class="card-cat">${escapeHtml(item.카테고리||'기타')}</div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div class="card-cat">${escapeHtml(item.카테고리||'기타')}</div>
+            <span class="status-badge status-${item.상태||'대기'}">${item.상태||'대기'}</span>
+          </div>
         </div>
         <div class="card-meta">
           ${item.컬러 ? `<div class="meta-item"><b>${escapeHtml(item.컬러)}</b></div>` : ''}
           ${item.원가위안 ? `<div class="meta-item">¥<b>${escapeHtml(item.원가위안)}</b></div>` : ''}
-          ${item.최소오더수량 ? `<div class="meta-item">MOQ <b>${escapeHtml(item.최소오더수량)}</b></div>` : ''}
+          ${item.필파워 ? `<div class="meta-item">FP <b>${escapeHtml(item.필파워)}</b></div>` : ''}
         </div>
         <div class="card-sync ${syncClass}">
           <span class="sync-dot"></span>${syncLabel}
@@ -515,9 +536,15 @@ function bindMain(){
     state.filtersOpen = !state.filtersOpen;
     render();
   });
-  document.querySelectorAll(".chip").forEach(c=>{
+  document.querySelectorAll(".chip[data-cat]").forEach(c=>{
     c.addEventListener("click", ()=>{
       state.catFilter = c.dataset.cat;
+      render();
+    });
+  });
+  document.querySelectorAll(".chip[data-status]").forEach(c=>{
+    c.addEventListener("click", ()=>{
+      state.statusFilter = c.dataset.status;
       render();
     });
   });
@@ -526,8 +553,6 @@ function bindMain(){
     location.reload();
   });
   document.getElementById("syncBtn").addEventListener("click", runSync);
-  const logoutBtn = document.getElementById("logoutBtn");
-  if(logoutBtn) logoutBtn.addEventListener("click", doLogout);
   document.querySelectorAll(".card").forEach(c=>{
     c.addEventListener("click", ()=>{
       const item = state.items.find(i=>i.local_id === c.dataset.id);
@@ -560,6 +585,7 @@ function openNewItem(){
     local_id: uid(),
     카테고리: "다운",
     거래처명: lastVendor, 상품코드:"",
+    상태:"대기",
     충전재종류:"", 필파워:"", 충전재중량:"", 완제품중량:"",
     원단소재명:"", 원단단가:"", 컬러:"", 원가위안:"", 최소오더수량:"", 메모:"",
     local_photos: [],
@@ -587,6 +613,8 @@ function formSheetHtml(){
     </div>
   `).join("");
 
+  const krw = yuanToKrw(it.원가위안);
+
   return `
   <div class="sheet-backdrop open" id="sheetBackdrop"></div>
   <div class="sheet open" id="sheetEl">
@@ -605,8 +633,8 @@ function formSheetHtml(){
       </div>
 
       <div class="field-group">
-        <div class="field-group-label">사진</div>
-        <div class="photo-row">
+        <div class="field-group-label">사진 <span style="font-size:10px;color:var(--ink-soft);font-weight:400;letter-spacing:0;">꾹 눌러서 순서 변경</span></div>
+        <div class="photo-row" id="photoSortRow">
           ${photosHtml}
           <button class="photo-add" id="photoAddBtn">＋</button>
           <input type="file" id="photoInput" accept="image/*" capture="environment" multiple style="display:none;">
@@ -620,25 +648,19 @@ function formSheetHtml(){
           <input data-field="거래처명" value="${escapeAttr(it.거래처명)}" placeholder="예: OO다운">
         </div>
         <div class="field"><label>상품코드</label><input data-field="상품코드" value="${escapeAttr(it.상품코드)}" placeholder="예: DW-2201"></div>
-        <div class="field"><label>컬러</label><input data-field="컬러" value="${escapeAttr(it.컬러)}" placeholder="예: 블랙"></div>
+        <div class="field"><label>원단 소재</label><input data-field="원단소재명" value="${escapeAttr(it.원단소재명)}" placeholder="예: 20D 나일론 립스탑"></div>
         <div class="field-row">
-          <div class="field"><label>원단 소재</label><input data-field="원단소재명" value="${escapeAttr(it.원단소재명)}" placeholder="예: 20D 나일론 립스탑"></div>
           <div class="field"><label>원단 단가</label><input data-field="원단단가" type="number" inputmode="decimal" value="${escapeAttr(it.원단단가)}" placeholder="원/yd"></div>
+          <div class="field"><label>컬러</label><input data-field="컬러" value="${escapeAttr(it.컬러)}" placeholder="예: 블랙"></div>
         </div>
         <div class="field">
           <label>원가 (위안 ¥)</label>
           <input data-field="원가위안" id="priceInput" type="number" inputmode="decimal" value="${escapeAttr(it.원가위안)}" placeholder="예: 100">
           <div id="krwDisplay" style="font-size:12.5px;color:var(--accent);font-weight:600;margin-top:5px;">
-            ${krwLine(it.원가위안)}
+            ${krw ? `≈ ${krw.toLocaleString()}원 (×1.1, 190원/¥ 기준)` : ''}
           </div>
         </div>
-        <div class="field">
-          <label>최소오더수량(MOQ)</label>
-          <input data-field="최소오더수량" id="moqInput" type="number" inputmode="numeric" value="${escapeAttr(it.최소오더수량)}" placeholder="예: 300">
-          <div id="moqTotalDisplay" style="font-size:12.5px;color:var(--accent);font-weight:600;margin-top:5px;">
-            ${moqTotalLine(it.원가위안, it.최소오더수량)}
-          </div>
-        </div>
+        <div class="field"><label>최소오더수량(MOQ)</label><input data-field="최소오더수량" type="number" inputmode="numeric" value="${escapeAttr(it.최소오더수량)}" placeholder="예: 300"></div>
       </div>
 
       <div class="field-group">
@@ -664,50 +686,10 @@ function formSheetHtml(){
   `;
 }
 
-/* ============== 환율 (CNY -> KRW) ============== */
-// 인터넷 될 때 실시간 API로 환율 갱신, 안 될 때는 마지막 저장값 또는 기본값(190) 사용
-let exchangeRateState = {
-  rate: Number(localStorage.getItem("cny_krw_rate")) || 190,
-  updatedAt: localStorage.getItem("cny_krw_rate_updated") || null
-};
-
-async function refreshExchangeRate(){
-  if(!navigator.onLine) return;
-  try{
-    const res = await fetch("https://open.er-api.com/v6/latest/CNY");
-    if(!res.ok) return;
-    const data = await res.json();
-    const krwRate = data?.rates?.KRW;
-    if(krwRate){
-      exchangeRateState.rate = krwRate;
-      exchangeRateState.updatedAt = new Date().toISOString();
-      localStorage.setItem("cny_krw_rate", String(krwRate));
-      localStorage.setItem("cny_krw_rate_updated", exchangeRateState.updatedAt);
-    }
-  } catch(err){
-    // 실패하면 기존 캐시값 그대로 사용
-  }
-}
-
 function yuanToKrw(yuan){
   const n = Number(yuan);
   if(!yuan || isNaN(n)) return null;
-  return Math.round(n * 1.1 * exchangeRateState.rate);
-}
-
-function krwLine(yuan){
-  const krw = yuanToKrw(yuan);
-  if(!krw) return '';
-  const rateLabel = Math.round(exchangeRateState.rate);
-  return `≈ ${krw.toLocaleString()}원 (×1.1, ${rateLabel}원/¥ 기준)`;
-}
-
-function moqTotalLine(yuan, moq){
-  const krw = yuanToKrw(yuan);
-  const q = Number(moq);
-  if(!krw || !q || isNaN(q)) return '';
-  const total = krw * q;
-  return `MOQ ${q.toLocaleString()}개 기준 총 ≈ ${total.toLocaleString()}원`;
+  return Math.round(n * 1.1 * 190);
 }
 
 function bindFormSheet(){
@@ -721,14 +703,21 @@ function bindFormSheet(){
       render();
     });
   });
+  document.querySelectorAll("[data-statusbtn]").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      state.editingItem.상태 = b.dataset.statusbtn;
+      render();
+    });
+  });
+  // 드래그로 사진 순서 변경
+  setupPhotoDrag();
   document.querySelectorAll("[data-field]").forEach(inp=>{
     inp.addEventListener("input", (e)=>{
       state.editingItem[inp.dataset.field] = e.target.value;
-      if(inp.dataset.field === "원가위안" || inp.dataset.field === "최소오더수량"){
-        const krwDisp = document.getElementById("krwDisplay");
-        if(krwDisp) krwDisp.textContent = krwLine(state.editingItem.원가위안);
-        const moqDisp = document.getElementById("moqTotalDisplay");
-        if(moqDisp) moqDisp.textContent = moqTotalLine(state.editingItem.원가위안, state.editingItem.최소오더수량);
+      if(inp.dataset.field === "원가위안"){
+        const krw = yuanToKrw(e.target.value);
+        const disp = document.getElementById("krwDisplay");
+        if(disp) disp.textContent = krw ? `≈ ${krw.toLocaleString()}원 (×1.1, 190원/¥ 기준)` : '';
       }
     });
   });
@@ -807,19 +796,12 @@ async function saveItem(){
 }
 
 /* ============== DETAIL SHEET ============== */
-function canEditItem(item){
-  // 아직 서버에 동기화 안 된 새 항목(remote_id 없음)은 누구나(작성 중인 본인) 수정 가능
-  if(!item.remote_id) return true;
-  if(!state.session) return false; // 로그인 안 했으면 서버에 올라간 항목은 수정 불가
-  return item.created_by === state.session.user.id || state.isAdmin;
-}
-
 function detailSheetHtml(){
   const it = state.detailItem;
   const photosHtml = (it.local_photos||[]).map(p=>`<img src="${p}">`).join("");
   const krw = yuanToKrw(it.원가위안);
   const moqTotal = (krw && it.최소오더수량) ? krw * Number(it.최소오더수량) : null;
-  const editable = canEditItem(it);
+  const editable = true; // 이 파일에서는 로그인 없이 모두 수정 가능
   const rows = [
     ["거래처명", it.거래처명], ["상품코드", it.상품코드],
     ["원단 소재", it.원단소재명],
@@ -839,18 +821,23 @@ function detailSheetHtml(){
     <div class="sheet-header">
       <button class="sheet-btn cancel" id="detailClose">닫기</button>
       <div class="sheet-title">${escapeHtml(it.상품코드||'상품 상세')}</div>
-      ${editable ? `<button class="sheet-btn save" id="detailEditBtn">수정</button>` : `<div style="width:40px;"></div>`}
+      <button class="sheet-btn save" id="detailEditBtn">수정</button>
     </div>
     <div class="sheet-body">
-      <div class="card-cat" style="display:inline-block;margin-bottom:14px;">${escapeHtml(it.카테고리||'기타')}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <div class="card-cat">${escapeHtml(it.카테고리||'기타')}</div>
+        <span class="status-badge status-${it.상태||'대기'}">${it.상태||'대기'}</span>
+      </div>
+      <div class="status-segment">
+        ${STATUSES.map(s=>`<button class="status-seg-btn ${(it.상태||'대기')===s?'active-'+s:''}" data-detailstatus="${s}">${s}</button>`).join("")}
+      </div>
       ${photosHtml ? `<div class="detail-photos">${photosHtml}</div>` : ''}
       <div style="margin-top:10px;">
         ${rows.map(([l,v])=>`<div class="detail-row"><div class="detail-label">${l}</div><div class="detail-value">${escapeHtml(String(v))}</div></div>`).join("")}
       </div>
       ${it.메모 ? `<div class="detail-memo">${escapeHtml(it.메모)}</div>` : ''}
       <div style="margin-top:16px;font-size:12px;color:var(--ink-soft);">
-        ${it.synced ? '✓ Supabase에 동기화됨' : '⏳ 동기화 대기 중'}
-        ${!editable ? ' · 다른 사람이 등록한 항목 (읽기 전용)' : ''}
+        ${it.synced ? '✓ 동기화됨' : '⏳ 동기화 대기 중'}
       </div>
     </div>
   </div>
@@ -869,150 +856,59 @@ function bindDetailSheet(){
       openEditItem(state.detailItem);
     });
   }
+  // 상태 변경 (상세화면에서 바로 변경 + 즉시 로컬 저장)
+  document.querySelectorAll("[data-detailstatus]").forEach(b=>{
+    b.addEventListener("click", async ()=>{
+      const newStatus = b.dataset.detailstatus;
+      state.detailItem.상태 = newStatus;
+      state.detailItem.synced = false;
+      state.detailItem.updated_at = new Date().toISOString();
+      await dbPut(state.detailItem);
+      const idx = state.items.findIndex(i=>i.local_id === state.detailItem.local_id);
+      if(idx >= 0) state.items[idx] = state.detailItem;
+      render();
+      toast(`상태를 "${newStatus}"로 변경했습니다`);
+    });
+  });
 }
 
 /* ============== SYNC TO SUPABASE ============== */
-/* ============== AUTH ============== */
-async function restoreSession(){
-  const { data } = await sb.auth.getSession();
-  state.session = data.session || null;
-  if(state.session){
-    await refreshIsAdmin();
-  }
-}
-
-async function refreshIsAdmin(){
-  if(!state.session) { state.isAdmin = false; return; }
-  try{
-    const { data, error } = await sb.from("admins").select("user_id").eq("user_id", state.session.user.id).maybeSingle();
-    state.isAdmin = !!data && !error;
-  } catch(err){
-    state.isAdmin = false;
-  }
-}
-
-function openLoginModal(){
-  state.loginModalOpen = true;
-  state.loginEmail = "";
-  state.loginPassword = "";
-  state.loginError = "";
-  render();
-}
-function closeLoginModal(){
-  state.loginModalOpen = false;
-  render();
-}
-
-async function doLogin(){
-  if(!state.loginEmail || !state.loginPassword){
-    state.loginError = "이메일과 비밀번호를 입력해주세요";
-    render();
-    return;
-  }
-  state.loginLoading = true;
-  render();
-  const { data, error } = await sb.auth.signInWithPassword({
-    email: state.loginEmail,
-    password: state.loginPassword
-  });
-  state.loginLoading = false;
-  if(error){
-    state.loginError = "로그인 실패: 이메일 또는 비밀번호를 확인해주세요";
-    render();
-    return;
-  }
-  state.session = data.session;
-  await refreshIsAdmin();
-  state.loginModalOpen = false;
-  render();
-  toast("로그인되었습니다. 동기화를 시작합니다");
-  runSync();
-}
-
-async function doLogout(){
-  await sb.auth.signOut();
-  state.session = null;
-  state.isAdmin = false;
-  render();
-  toast("로그아웃되었습니다");
-}
-
-function loginModalHtml(){
-  return `
-  <div class="sheet-backdrop open" id="loginBackdrop"></div>
-  <div class="sheet open" id="loginSheet" style="max-height:60%; top:auto;">
-    <div class="sheet-header">
-      <button class="sheet-btn cancel" id="loginCancel">취소</button>
-      <div class="sheet-title">동기화 로그인</div>
-      <div style="width:40px;"></div>
-    </div>
-    <div class="sheet-body">
-      <div class="field">
-        <label>이메일</label>
-        <input id="loginEmailInput" type="email" value="${escapeAttr(state.loginEmail)}" placeholder="you@panicale.com" autocapitalize="off" autocomplete="username">
-      </div>
-      <div class="field">
-        <label>비밀번호</label>
-        <input id="loginPasswordInput" type="password" value="${escapeAttr(state.loginPassword)}" placeholder="비밀번호" autocomplete="current-password">
-      </div>
-      ${state.loginError ? `<div style="color:var(--warn);font-size:13px;margin-bottom:10px;">${escapeHtml(state.loginError)}</div>` : ''}
-      <button class="cat-btn active" id="loginSubmitBtn" style="width:100%;padding:13px;font-size:15px;" ${state.loginLoading?'disabled':''}>
-        ${state.loginLoading ? '로그인 중…' : '로그인하고 동기화'}
-      </button>
-      <div style="font-size:12px;color:var(--ink-soft);margin-top:14px;text-align:center;">
-        계정이 없으면 관리자에게 문의해주세요
-      </div>
-    </div>
-  </div>
-  `;
-}
-function bindLoginModal(){
-  document.getElementById("loginCancel").addEventListener("click", closeLoginModal);
-  document.getElementById("loginBackdrop").addEventListener("click", closeLoginModal);
-  document.getElementById("loginEmailInput").addEventListener("input", (e)=>{ state.loginEmail = e.target.value; });
-  document.getElementById("loginPasswordInput").addEventListener("input", (e)=>{ state.loginPassword = e.target.value; });
-  document.getElementById("loginSubmitBtn").addEventListener("click", doLogin);
-}
-
-/* ============== SYNC TO SUPABASE (양방향, 인증 필요) ============== */
 async function runSync(){
   if(state.syncing) return;
   if(!navigator.onLine){
     toast("오프라인 상태입니다. 인터넷 연결 후 다시 시도하세요");
     return;
   }
-  if(!state.session){
-    openLoginModal();
+  const pending = state.items.filter(i=>!i.synced);
+  if(pending.length === 0){
+    toast("동기화할 항목이 없습니다");
     return;
   }
-
   state.syncing = true;
   render();
 
   let successCount = 0, failCount = 0;
 
-  // 1) PUSH: 로컬에서 변경된 항목 업로드
-  const pending = state.items.filter(i=>!i.synced);
   for(const item of pending){
     try{
-      const isOwner = !item.remote_id || item.created_by === state.session.user.id;
-      const isAllowed = isOwner || state.isAdmin;
-      if(item.remote_id && !isAllowed){
-        // 본인이 만든 게 아니고 관리자도 아니면 업로드(수정) 스킵
-        failCount++;
-        continue;
-      }
-
-      const photoUrls = item.사진url배열_existing || [];
+      // upload photos first
+      const photoUrls = [];
       for(let i=0;i<(item.local_photos||[]).length;i++){
         const dataUrl = item.local_photos[i];
-        if(!dataUrl.startsWith("data:")) continue; // 이미 업로드된 URL은 건너뜀
         const blob = await (await fetch(dataUrl)).blob();
         const path = `${item.local_id}/${i}.jpg`;
-        const { error: upErr } = await sb.storage.from(BUCKET).upload(path, blob, { upsert: true, contentType: "image/jpeg" });
-        if(!upErr){
-          const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
-          photoUrls.push(pub.publicUrl);
+        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+          method:"POST",
+          headers:{
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            "apikey": SUPABASE_ANON_KEY,
+            "Content-Type":"image/jpeg",
+            "x-upsert":"true"
+          },
+          body: blob
+        });
+        if(uploadRes.ok || uploadRes.status===200 || uploadRes.status===201){
+          photoUrls.push(`${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`);
         }
       }
 
@@ -1022,73 +918,56 @@ async function runSync(){
         충전재중량: numOrNull(item.충전재중량), 완제품중량: numOrNull(item.완제품중량),
         원단소재명: item.원단소재명, 원단단가: numOrNull(item.원단단가),
         컬러: item.컬러, 원가위안: numOrNull(item.원가위안), 최소오더수량: numOrNull(item.최소오더수량),
+        상태: item.상태 || '대기',
         메모: item.메모,
         사진url배열: photoUrls
       };
-      if(!item.remote_id) payload.created_by = state.session.user.id;
 
-      let result;
+      let res;
       if(item.remote_id){
-        result = await sb.from(TABLE).update(payload).eq("id", item.remote_id).select();
+        res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${item.remote_id}`, {
+          method:"PATCH",
+          headers:{
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            "apikey": SUPABASE_ANON_KEY,
+            "Content-Type":"application/json",
+            "Prefer":"return=representation"
+          },
+          body: JSON.stringify(payload)
+        });
       } else {
-        result = await sb.from(TABLE).insert(payload).select();
+        res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
+          method:"POST",
+          headers:{
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            "apikey": SUPABASE_ANON_KEY,
+            "Content-Type":"application/json",
+            "Prefer":"return=representation"
+          },
+          body: JSON.stringify(payload)
+        });
       }
 
-      if(!result.error){
+      if(res.ok){
+        const data = await res.json();
         item.synced = true;
-        item.remote_id = result.data[0]?.id || item.remote_id;
-        item.created_by = result.data[0]?.created_by || item.created_by;
+        item.remote_id = data[0]?.id || item.remote_id;
         await dbPut(item);
         successCount++;
       } else {
-        console.error("동기화 실패:", item.상품코드, result.error);
         failCount++;
       }
     } catch(err){
-      console.error("동기화 예외:", item.상품코드, err);
       failCount++;
     }
-  }
-
-  // 2) PULL: 서버 전체 데이터를 로컬로 받아와 병합 (내가 로컬에서만 수정 중인 건 덮지 않음)
-  try{
-    const { data: remoteRows, error: pullErr } = await sb.from(TABLE).select("*");
-    if(!pullErr && remoteRows){
-      for(const row of remoteRows){
-        const existingLocal = state.items.find(i=>i.remote_id === row.id);
-        if(existingLocal && !existingLocal.synced){
-          continue; // 로컬에 아직 안 올린 변경사항이 있으면 덮지 않음
-        }
-        const mapped = {
-          local_id: existingLocal ? existingLocal.local_id : uid(),
-          remote_id: row.id,
-          created_by: row.created_by,
-          카테고리: row.카테고리, 거래처명: row.거래처명, 상품코드: row.상품코드,
-          충전재종류: row.충전재종류, 필파워: row.필파워,
-          충전재중량: row.충전재중량, 완제품중량: row.완제품중량,
-          원단소재명: row.원단소재명, 원단단가: row.원단단가,
-          컬러: row.컬러, 원가위안: row.원가위안, 최소오더수량: row.최소오더수량,
-          메모: row.메모,
-          local_photos: row.사진url배열 || [],
-          사진url배열_existing: row.사진url배열 || [],
-          synced: true,
-          created_at: row.created_at,
-        };
-        await dbPut(mapped);
-        const idx = state.items.findIndex(i=>i.remote_id === row.id);
-        if(idx >= 0) state.items[idx] = mapped; else state.items.push(mapped);
-      }
-    }
-  } catch(err){
-    // pull 실패해도 push 결과는 유지
   }
 
   state.syncing = false;
   render();
   if(failCount===0){
-    toast(`${successCount}건 업로드, 전체 데이터 갱신 완료`);
+    toast(`${successCount}건 동기화 완료`);
   } else {
-    toast(`${successCount}건 성공, ${failCount}건 실패(권한 없음 포함)`);
+    toast(`${successCount}건 성공, ${failCount}건 실패 — 다시 시도해주세요`);
   }
 }
 
@@ -1104,6 +983,74 @@ function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 function escapeAttr(str){ return escapeHtml(str); }
+
+/* ============== 사진 드래그 순서변경 ============== */
+function setupPhotoDrag(){
+  const row = document.getElementById("photoSortRow");
+  if(!row) return;
+  let dragIdx = null;
+  let overIdx = null;
+
+  row.querySelectorAll(".photo-thumb").forEach((thumb, idx)=>{
+    thumb.setAttribute("draggable", true);
+    thumb.dataset.idx = idx;
+
+    // 마우스/터치 드래그
+    thumb.addEventListener("dragstart", ()=>{ dragIdx = idx; thumb.classList.add("dragging"); });
+    thumb.addEventListener("dragend", ()=>{ thumb.classList.remove("dragging"); dragIdx = null; });
+    thumb.addEventListener("dragover", (e)=>{ 
+      e.preventDefault(); 
+      overIdx = idx;
+      row.querySelectorAll(".photo-thumb").forEach(t=>t.classList.remove("drag-over"));
+      thumb.classList.add("drag-over");
+    });
+    thumb.addEventListener("dragleave", ()=>{ thumb.classList.remove("drag-over"); });
+    thumb.addEventListener("drop", ()=>{
+      row.querySelectorAll(".photo-thumb").forEach(t=>t.classList.remove("drag-over"));
+      if(dragIdx !== null && overIdx !== null && dragIdx !== overIdx){
+        const photos = state.editingItem.local_photos;
+        const moved = photos.splice(dragIdx, 1)[0];
+        photos.splice(overIdx, 0, moved);
+        render();
+      }
+    });
+
+    // 터치 드래그 (모바일/아이패드)
+    let touchTimer = null;
+    let touchStartIdx = null;
+    thumb.addEventListener("touchstart", (e)=>{
+      touchStartIdx = idx;
+      touchTimer = setTimeout(()=>{
+        thumb.classList.add("dragging");
+        dragIdx = idx;
+      }, 400);
+    }, {passive:true});
+    thumb.addEventListener("touchend", ()=>{
+      clearTimeout(touchTimer);
+      if(dragIdx !== null && overIdx !== null && dragIdx !== overIdx){
+        const photos = state.editingItem.local_photos;
+        const moved = photos.splice(dragIdx, 1)[0];
+        photos.splice(overIdx, 0, moved);
+        render();
+        return;
+      }
+      thumb.classList.remove("dragging");
+      dragIdx = null;
+    });
+    thumb.addEventListener("touchmove", (e)=>{
+      if(dragIdx === null) return;
+      const touch = e.touches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetThumb = el?.closest(".photo-thumb");
+      if(targetThumb){
+        overIdx = parseInt(targetThumb.dataset.idx);
+        row.querySelectorAll(".photo-thumb").forEach(t=>t.classList.remove("drag-over"));
+        targetThumb.classList.add("drag-over");
+      }
+    }, {passive:true});
+  });
+}
+
 
 /* ============== PULL TO REFRESH ============== */
 function setupPullToRefresh(){
@@ -1135,12 +1082,10 @@ function setupPullToRefresh(){
 async function init(){
   await openDB();
   state.items = await dbGetAll();
-  await restoreSession();
   render();
-  window.addEventListener("online", ()=>{ render(); refreshExchangeRate(); });
+  window.addEventListener("online", ()=>render());
   window.addEventListener("offline", ()=>render());
   setupPullToRefresh();
-  refreshExchangeRate(); // 인터넷 되면 백그라운드로 환율 갱신, 폼 열 때 최신값 적용됨
 }
 
 // patch render to bind sheet listeners after DOM update
@@ -1149,7 +1094,6 @@ render = function(){
   _origRender();
   if(state.authed && state.sheetOpen) bindFormSheet();
   if(state.authed && state.detailItem) bindDetailSheet();
-  if(state.authed && state.loginModalOpen) bindLoginModal();
 };
 
 init();
