@@ -484,8 +484,9 @@ function filteredItems(){
 
 function renderMain(){
   const pending = pendingCount();
-  const syncPillClass = navigator.onLine ? (pending>0 ? 'pending' : 'synced') : 'pending';
-  const syncLabel = !navigator.onLine ? `오프라인 · 대기 ${pending}` :
+  const syncPillClass = !state.session ? 'pending' : navigator.onLine ? (pending>0 ? 'pending' : 'synced') : 'pending';
+  const syncLabel = !state.session ? `로컬 기록중` :
+                     !navigator.onLine ? `오프라인 · 대기 ${pending}` :
                      pending>0 ? `대기 ${pending}건` : `모두 동기화됨`;
 
   const items = filteredItems();
@@ -607,7 +608,10 @@ function bindMain(){
   document.getElementById("brandRefreshBtn").addEventListener("click", ()=>{
     location.reload();
   });
-  document.getElementById("syncBtn").addEventListener("click", runSync);
+  document.getElementById("syncBtn").addEventListener("click", ()=>{
+    if(!state.session){ openLoginModal(); return; }
+    runSync();
+  });
   const logoutBtn = document.getElementById("logoutBtn");
   if(logoutBtn) logoutBtn.addEventListener("click", doLogout);
   const trashFab = document.getElementById("trashFab");
