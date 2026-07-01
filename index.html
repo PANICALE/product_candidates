@@ -880,6 +880,7 @@ async function saveItem(){
   if(idx >= 0) state.items[idx] = it; else state.items.push(it);
   closeSheet();
   toast(it.isNew ? "저장되었습니다" : "수정되었습니다");
+  if(state.session && navigator.onLine) runSync();
 }
 
 /* ============== DETAIL SHEET ============== */
@@ -955,6 +956,7 @@ function bindDetailSheet(){
       if(idx >= 0) state.items[idx] = state.detailItem;
       render();
       toast(`상태를 "${newStatus}"로 변경했습니다`);
+      if(state.session && navigator.onLine) runSync();
     });
   });
 }
