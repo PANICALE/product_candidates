@@ -578,10 +578,13 @@ function cardHtml(item){
             <span class="status-badge status-${item.상태||'대기'}">${item.상태||'대기'}</span>
           </div>
         </div>
-        <div class="card-meta">
+        <div class="card-meta" style="min-height:18px;">
           ${item.컬러 ? `<div class="meta-item"><b>${escapeHtml(item.컬러)}</b></div>` : ''}
-          ${item.원가위안 ? `<div class="meta-item">¥<b>${escapeHtml(item.원가위안)}</b></div>` : ''}
-          ${item.필파워 ? `<div class="meta-item">FP <b>${escapeHtml(item.필파워)}</b></div>` : ''}
+        </div>
+        <div class="card-meta" style="min-height:18px;flex-wrap:nowrap;gap:6px;overflow:hidden;">
+          ${item.원가위안 ? `<div class="meta-item" style="white-space:nowrap;">¥<b>${escapeHtml(item.원가위안)}</b> <b>${escapeHtml(item.최소오더수량||'-')}</b>개</div>` : ''}
+          ${item.원가위안2 ? `<div class="meta-item" style="white-space:nowrap;color:var(--ink-soft);">¥<b>${escapeHtml(item.원가위안2)}</b> <b>${escapeHtml(item.최소오더수량2||'-')}</b>개</div>` : ''}
+          ${item.원가위안3 ? `<div class="meta-item" style="white-space:nowrap;color:var(--ink-soft);">¥<b>${escapeHtml(item.원가위안3)}</b> <b>${escapeHtml(item.최소오더수량3||'-')}</b>개</div>` : ''}
         </div>
         <div class="card-sync ${syncClass}">
           <span class="sync-dot"></span>${syncLabel}
