@@ -1590,7 +1590,8 @@ function bindPhotoViewer(){
   });
   if(pvNext) pvNext.addEventListener("click", ()=>{ 
     const {idx, photos} = state.photoViewer;
-    const newIdx = idx < photos.length-1 ? idx+1 : 0;
+    let newIdx = idx < photos.length-1 ? idx+1 : 0;
+    if(idx === photos.length-1) toast("마지막 사진입니다");
     state.photoViewer.idx = newIdx;
     const track = document.getElementById("pvTrack");
     if(track){ track.style.transition="transform .25s cubic-bezier(.32,.72,0,1)"; track.style.transform=`translateX(${-newIdx*100}%)`; }
@@ -1627,8 +1628,12 @@ function bindPhotoViewer(){
     const track = document.getElementById("pvTrack");
 
     let newIdx = idx;
-    if(dx < -(screenW * threshold)) newIdx = idx < photos.length-1 ? idx+1 : 0;
-    else if(dx > (screenW * threshold)) newIdx = idx > 0 ? idx-1 : photos.length-1;
+    if(dx < -(screenW * threshold)){
+      newIdx = idx < photos.length-1 ? idx+1 : 0;
+      if(newIdx === photos.length-1) toast("마지막 사진입니다");
+    } else if(dx > (screenW * threshold)){
+      newIdx = idx > 0 ? idx-1 : photos.length-1;
+    }
 
     state.photoViewer.idx = newIdx;
     if(track){
