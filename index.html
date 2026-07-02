@@ -206,6 +206,13 @@
 
   /* 상세 사진 갤러리 3:4 */
   .detail-photos{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:4px;}
+  .photo-viewer{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;}
+  .photo-viewer-img{max-width:100%;max-height:100%;object-fit:contain;touch-action:none;transition:transform .1s;}
+  .photo-viewer-close{position:fixed;top:calc(20px + var(--safe-top));right:20px;z-index:101;color:#fff;font-size:28px;background:none;border:none;}
+  .photo-viewer-prev,.photo-viewer-next{position:fixed;top:50%;transform:translateY(-50%);z-index:101;color:#fff;font-size:32px;background:none;border:none;padding:20px;}
+  .photo-viewer-prev{left:0;}
+  .photo-viewer-next{right:0;}
+  .photo-viewer-counter{position:fixed;bottom:calc(30px + var(--safe-bottom));left:50%;transform:translateX(-50%);color:#fff;font-size:13px;font-weight:600;}
   .detail-photos img{
     width:160px;height:213px;object-fit:cover;border-radius:12px;flex-shrink:0;
   }
@@ -370,6 +377,7 @@ let state = {
   detailItem: null,
   syncing: false,
   trashOpen: false,
+  photoViewer: null,
   session: null,
   isAdmin: false,
   loginModalOpen: false,
@@ -535,6 +543,7 @@ function renderMain(){
     ${state.sheetOpen ? formSheetHtml() : ''}
     ${state.detailItem ? detailSheetHtml() : ''}
     ${state.trashOpen ? trashSheetHtml() : ''}
+    ${state.photoViewer ? photoViewerHtml() : ''}
     ${state.selectMode ? selectBarHtml() : ''}
     ${state.loginModalOpen ? loginModalHtml() : ''}
   `;
@@ -853,7 +862,8 @@ function bindFormSheet(){
         state.editingItem.deleted_at = new Date().toISOString();
         state.editingItem.synced = false;
         await dbPut(state.editingItem);
-        state.items = state.items.filter(i=>i.local_id !== state.editingItem.local_id);
+        const deletedId = state.editingItem.local_id;
+        state.items = state.items.map(i=> i.local_id === deletedId ? {...i, deleted_at: new Date().toISOString()} : i);
         closeSheet();
         toast("휴지통으로 이동했습니다");
       }
@@ -919,7 +929,7 @@ function detailSheetHtml(){
   const photosHtml = (it.local_photos||[]).map(p=>`<img src="${p}">`).join("");
   const krw = yuanToKrw(it.원가위안);
   const moqTotal = (krw && it.최소오더수량) ? krw * Number(it.최소오더수량) : null;
-  const editable = true; // 이 파일에서는 로그인 없이 모두 수정 가능
+  const editable = !state.session || !it.remote_id || it.created_by === state.session?.user?.id || state.isAdmin;
   const rows = [
     ["거래처명", it.거래처명], ["상품코드", it.상품코드],
     ["원단 소재", it.원단소재명],
@@ -967,6 +977,14 @@ function bindDetailSheet(){
   });
   document.getElementById("detailBackdrop").addEventListener("click", ()=>{
     state.detailItem = null; render();
+  });
+  document.querySelectorAll(".detail-photos img").forEach((img, idx)=>{
+    img.style.cursor = "pointer";
+    img.addEventListener("click", ()=>{
+      const photos = state.detailItem.local_photos || [];
+      state.photoViewer = { photos, idx };
+      render();
+    });
   });
   const editBtn = document.getElementById("detailEditBtn");
   if(editBtn){
@@ -1516,6 +1534,57 @@ function bindLoginModal(){
   document.getElementById("loginSubmitBtn").addEventListener("click", doLogin);
 }
 
+/* ============== 사진 전체화면 뷰어 ============== */
+function photoViewerHtml(){
+  const {photos, idx} = state.photoViewer;
+  return `
+  <div class="photo-viewer" id="photoViewerEl">
+    <button class="photo-viewer-close" id="pvClose">✕</button>
+    ${idx > 0 ? `<button class="photo-viewer-prev" id="pvPrev">‹</button>` : ''}
+    ${idx < photos.length-1 ? `<button class="photo-viewer-next" id="pvNext">›</button>` : ''}
+    <img class="photo-viewer-img" id="pvImg" src="${photos[idx]}">
+    <div class="photo-viewer-counter">${idx+1} / ${photos.length}</div>
+  </div>`;
+}
+function bindPhotoViewer(){
+  const el = document.getElementById("photoViewerEl");
+  document.getElementById("pvClose").addEventListener("click", ()=>{ state.photoViewer=null; render(); });
+  const pvPrev = document.getElementById("pvPrev");
+  const pvNext = document.getElementById("pvNext");
+  if(pvPrev) pvPrev.addEventListener("click", ()=>{ state.photoViewer.idx--; render(); });
+  if(pvNext) pvNext.addEventListener("click", ()=>{ state.photoViewer.idx++; render(); });
+
+  // 스와이프로 사진 넘기기
+  let startX = 0;
+  el.addEventListener("touchstart", (e)=>{ startX = e.touches[0].clientX; }, {passive:true});
+  el.addEventListener("touchend", (e)=>{
+    const dx = e.changedTouches[0].clientX - startX;
+    if(dx < -50 && state.photoViewer.idx < state.photoViewer.photos.length-1){ state.photoViewer.idx++; render(); }
+    if(dx > 50 && state.photoViewer.idx > 0){ state.photoViewer.idx--; render(); }
+  }, {passive:true});
+
+  // 핀치줌
+  const img = document.getElementById("pvImg");
+  let scale = 1, lastDist = 0;
+  el.addEventListener("touchstart", (e)=>{
+    if(e.touches.length === 2){
+      lastDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    }
+  }, {passive:true});
+  el.addEventListener("touchmove", (e)=>{
+    if(e.touches.length === 2){
+      const dist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      scale *= dist/lastDist;
+      scale = Math.min(Math.max(scale, 1), 4);
+      img.style.transform = `scale(${scale})`;
+      lastDist = dist;
+    }
+  }, {passive:true});
+  el.addEventListener("touchend", (e)=>{
+    if(e.touches.length < 2 && scale <= 1.05){ scale=1; img.style.transform='scale(1)'; }
+  }, {passive:true});
+}
+
 /* ============== PULL TO REFRESH ============== */
 function setupPullToRefresh(){
   let startY = 0, pulling = false;
@@ -1562,6 +1631,7 @@ render = function(){
   if(state.authed && state.sheetOpen) bindFormSheet();
   if(state.authed && state.detailItem) bindDetailSheet();
   if(state.authed && state.trashOpen) bindTrashSheet();
+  if(state.authed && state.photoViewer) bindPhotoViewer();
   if(state.authed && state.loginModalOpen) bindLoginModal();
   if(state.authed && state.selectMode) bindSelectBar();
 };
