@@ -198,6 +198,11 @@
   }
   .photo-thumb img{width:100%;height:100%;object-fit:cover;}
   .photo-thumb.dragging{opacity:0.35;border:2px dashed var(--accent);transform:scale(0.95);}
+  .photo-remove{
+    position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;
+    background:rgba(0,0,0,0.55);color:#fff;border:none;font-size:13px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+  }
   .photo-thumb.drag-over{border:2.5px solid var(--ok);box-shadow:0 0 0 3px var(--ok-soft);transform:scale(1.05);}
   .photo-add{
     width:80px;height:107px;border-radius:10px;border:1.5px dashed var(--line);
@@ -550,10 +555,18 @@ function renderMain(){
 }
 
 function emptyStateHtml(){
+  const messages = {
+    "전체": { title: "아직 등록된 상품이 없습니다", sub: "오른쪽 아래 + 버튼으로 첫 상품을 등록해보세요" },
+    "대기": { title: "아직 등록된 상품이 없습니다", sub: "오른쪽 아래 + 버튼으로 첫 상품을 등록해보세요" },
+    "보류": { title: "보류중인 상품이 없습니다", sub: "" },
+    "확정": { title: "확정된 상품이 없습니다", sub: "" },
+    "탈락": { title: "탈락된 상품이 없습니다", sub: "" },
+  };
+  const msg = messages[state.statusFilter] || messages["전체"];
   return `
     <div class="empty-state">
-      <div class="empty-state-title">아직 등록된 상품이 없습니다</div>
-      <div>오른쪽 아래 + 버튼으로 첫 상품을 등록해보세요</div>
+      <div class="empty-state-title">${msg.title}</div>
+      ${msg.sub ? `<div>${msg.sub}</div>` : ''}
     </div>
   `;
 }
@@ -742,7 +755,7 @@ function formSheetHtml(){
         <div class="photo-row" id="photoSortRow">
           ${photosHtml}
           <button class="photo-add" id="photoAddBtn">＋</button>
-          <input type="file" id="photoInput" accept="image/*" capture="environment" multiple style="display:none;">
+          <input type="file" id="photoInput" accept="image/*" multiple style="display:none;">
         </div>
       </div>
 
@@ -1224,9 +1237,10 @@ function setupPhotoDrag(){
     thumb.addEventListener("drop", ()=>{
       row.querySelectorAll(".photo-thumb").forEach(t=>t.classList.remove("drag-over"));
       if(dragIdx !== null && overIdx !== null && dragIdx !== overIdx){
-        const photos = state.editingItem.local_photos;
+        const photos = [...state.editingItem.local_photos];
         const moved = photos.splice(dragIdx, 1)[0];
         photos.splice(overIdx, 0, moved);
+        state.editingItem.local_photos = photos;
         render();
       }
     });
@@ -1244,11 +1258,11 @@ function setupPhotoDrag(){
     thumb.addEventListener("touchend", ()=>{
       clearTimeout(touchTimer);
       if(dragIdx !== null && overIdx !== null && dragIdx !== overIdx){
-        const photos = state.editingItem.local_photos;
+        const photos = [...state.editingItem.local_photos];
         const moved = photos.splice(dragIdx, 1)[0];
         photos.splice(overIdx, 0, moved);
+        state.editingItem.local_photos = photos;
         render();
-        return;
       }
       thumb.classList.remove("dragging");
       dragIdx = null;
@@ -1540,12 +1554,19 @@ function bindLoginModal(){
 /* ============== 사진 전체화면 뷰어 ============== */
 function photoViewerHtml(){
   const {photos, idx} = state.photoViewer;
+  const slidesHtml = photos.map((p,i)=>`
+    <div style="min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+      <img src="${p}" style="max-width:100%;max-height:100%;object-fit:contain;" id="pvImg${i}">
+    </div>
+  `).join("");
   return `
   <div class="photo-viewer" id="photoViewerEl">
     <button class="photo-viewer-close" id="pvClose">✕</button>
-    ${idx > 0 ? `<button class="photo-viewer-prev" id="pvPrev">‹</button>` : ''}
-    ${idx < photos.length-1 ? `<button class="photo-viewer-next" id="pvNext">›</button>` : ''}
-    <img class="photo-viewer-img" id="pvImg" src="${photos[idx]}">
+    <div id="pvTrack" style="display:flex;width:100%;height:100%;transform:translateX(${-idx*100}%);transition:transform .25s cubic-bezier(.32,.72,0,1);will-change:transform;">
+      ${slidesHtml}
+    </div>
+    <button class="photo-viewer-prev" id="pvPrev">‹</button>
+    <button class="photo-viewer-next" id="pvNext">›</button>
     <div class="photo-viewer-counter">${idx+1} / ${photos.length}</div>
   </div>`;
 }
@@ -1554,24 +1575,62 @@ function bindPhotoViewer(){
   document.getElementById("pvClose").addEventListener("click", ()=>{ state.photoViewer=null; render(); });
   const pvPrev = document.getElementById("pvPrev");
   const pvNext = document.getElementById("pvNext");
-  if(pvPrev) pvPrev.addEventListener("click", ()=>{ state.photoViewer.idx--; render(); });
-  if(pvNext) pvNext.addEventListener("click", ()=>{ state.photoViewer.idx++; render(); });
+  if(pvPrev) pvPrev.addEventListener("click", ()=>{ 
+    const {idx, photos} = state.photoViewer;
+    const newIdx = idx > 0 ? idx-1 : photos.length-1;
+    state.photoViewer.idx = newIdx;
+    const track = document.getElementById("pvTrack");
+    if(track){ track.style.transition="transform .25s cubic-bezier(.32,.72,0,1)"; track.style.transform=`translateX(${-newIdx*100}%)`; }
+    setTimeout(()=>render(), 260);
+  });
+  if(pvNext) pvNext.addEventListener("click", ()=>{ 
+    const {idx, photos} = state.photoViewer;
+    const newIdx = idx < photos.length-1 ? idx+1 : 0;
+    state.photoViewer.idx = newIdx;
+    const track = document.getElementById("pvTrack");
+    if(track){ track.style.transition="transform .25s cubic-bezier(.32,.72,0,1)"; track.style.transform=`translateX(${-newIdx*100}%)`; }
+    setTimeout(()=>render(), 260);
+  });
 
-  // 스와이프로 사진 넘기기
-  let startX = 0;
-  el.addEventListener("touchstart", (e)=>{ startX = e.touches[0].clientX; }, {passive:true});
+  // 슬라이더 스와이프
+  let startX = 0, currentX = 0, isDragging = false;
+  const threshold = 0.3; // 30% 이상 당기면 넘어감
+
+  el.addEventListener("touchstart", (e)=>{
+    if(e.touches.length !== 1 || scale > 1.05) return;
+    startX = e.touches[0].clientX;
+    isDragging = true;
+    const track = document.getElementById("pvTrack");
+    if(track) track.style.transition = "none";
+  }, {passive:true});
+
+  el.addEventListener("touchmove", (e)=>{
+    if(!isDragging || e.touches.length !== 1 || scale > 1.05) return;
+    currentX = e.touches[0].clientX;
+    const dx = currentX - startX;
+    const {idx, photos} = state.photoViewer;
+    const track = document.getElementById("pvTrack");
+    if(track) track.style.transform = `translateX(calc(${-idx*100}% + ${dx}px))`;
+  }, {passive:true});
+
   el.addEventListener("touchend", (e)=>{
+    if(!isDragging) return;
+    isDragging = false;
     const dx = e.changedTouches[0].clientX - startX;
-    if(dx < -50 && state.photoViewer.idx < state.photoViewer.photos.length-1){
-      const img = document.getElementById("pvImg");
-      if(img){ img.style.transition="opacity .15s"; img.style.opacity="0"; }
-      setTimeout(()=>{ state.photoViewer.idx++; render(); }, 150);
+    const {idx, photos} = state.photoViewer;
+    const screenW = window.innerWidth;
+    const track = document.getElementById("pvTrack");
+
+    let newIdx = idx;
+    if(dx < -(screenW * threshold)) newIdx = idx < photos.length-1 ? idx+1 : 0;
+    else if(dx > (screenW * threshold)) newIdx = idx > 0 ? idx-1 : photos.length-1;
+
+    state.photoViewer.idx = newIdx;
+    if(track){
+      track.style.transition = "transform .25s cubic-bezier(.32,.72,0,1)";
+      track.style.transform = `translateX(${-newIdx*100}%)`;
     }
-    if(dx > 50 && state.photoViewer.idx > 0){
-      const img = document.getElementById("pvImg");
-      if(img){ img.style.transition="opacity .15s"; img.style.opacity="0"; }
-      setTimeout(()=>{ state.photoViewer.idx--; render(); }, 150);
-    }
+    setTimeout(()=>render(), 260);
   }, {passive:true});
 
   // 핀치줌
