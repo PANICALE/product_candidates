@@ -997,7 +997,6 @@ async function runSync(){
   if(!navigator.onLine){ toast("오프라인 상태입니다. 인터넷 연결 후 다시 시도하세요"); return; }
   if(!state.session){ openLoginModal(); return; }
   const pending = state.items.filter(i=>!i.synced);
-  if(pending.length === 0){ toast("동기화할 항목이 없습니다"); return; }
   state.syncing = true;
   render();
 
@@ -1118,12 +1117,52 @@ async function runSync(){
     }
   } catch(e){ console.error("pull 실패:", e); }
 
+  // PULL: 서버 전체 데이터 받아오기
+  try{
+    const pullRes = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?select=*`, {
+      headers:{
+        "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
+        "apikey": SUPABASE_ANON_KEY
+      }
+    });
+    if(pullRes.ok){
+      const rows = await pullRes.json();
+      for(const row of rows){
+        if(row.deleted_at) continue;
+        const existing = state.items.find(i=>i.remote_id === row.id);
+        if(existing && !existing.synced) continue;
+        const mapped = {
+          local_id: existing ? existing.local_id : uid(),
+          remote_id: row.id,
+          created_by: row.created_by,
+          카테고리: row.카테고리, 거래처명: row.거래처명, 상품코드: row.상품코드,
+          충전재종류: row.충전재종류, 필파워: row.필파워,
+          충전재중량: row.충전재중량, 완제품중량: row.완제품중량,
+          원단소재명: row.원단소재명, 원단단가: row.원단단가,
+          컬러: row.컬러,
+          원가위안: row.원가위안, 최소오더수량: row.최소오더수량,
+          원가위안2: row.원가위안2, 최소오더수량2: row.최소오더수량2,
+          원가위안3: row.원가위안3, 최소오더수량3: row.최소오더수량3,
+          상태: row.상태||'대기', 메모: row.메모,
+          local_photos: row.사진url배열||[],
+          사진url배열_existing: row.사진url배열||[],
+          synced: true,
+          created_at: row.created_at,
+        };
+        await dbPut(mapped);
+        const idx = state.items.findIndex(i=>i.remote_id === row.id);
+        if(idx >= 0) state.items[idx] = mapped;
+        else state.items.push(mapped);
+      }
+    }
+  } catch(e){ console.error("pull 실패:", e); }
+
   state.syncing = false;
   render();
   if(failCount===0){
-    toast(`${successCount}건 업로드, 전체 데이터 갱신 완료`);
+    toast(`전체 데이터 갱신 완료${successCount > 0 ? ` (${successCount}건 업로드)` : ''}`);
   } else {
-    toast(`${successCount}건 성공, ${failCount}건 실패 — 다시 시도해주세요`);
+    toast(`${successCount}건 성공, ${failCount}건 실패`);
   }
 }
 
