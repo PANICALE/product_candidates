@@ -581,10 +581,10 @@ function cardHtml(item){
         <div class="card-meta" style="min-height:18px;">
           ${item.컬러 ? `<div class="meta-item"><b>${escapeHtml(item.컬러)}</b></div>` : ''}
         </div>
-        <div class="card-meta" style="min-height:18px;flex-wrap:nowrap;gap:6px;overflow:hidden;">
-          ${item.원가위안 ? `<div class="meta-item" style="white-space:nowrap;">¥<b>${escapeHtml(item.원가위안)}</b> <b>${escapeHtml(item.최소오더수량||'-')}</b>개</div>` : ''}
-          ${item.원가위안2 ? `<div class="meta-item" style="white-space:nowrap;color:var(--ink-soft);">¥<b>${escapeHtml(item.원가위안2)}</b> <b>${escapeHtml(item.최소오더수량2||'-')}</b>개</div>` : ''}
-          ${item.원가위안3 ? `<div class="meta-item" style="white-space:nowrap;color:var(--ink-soft);">¥<b>${escapeHtml(item.원가위안3)}</b> <b>${escapeHtml(item.최소오더수량3||'-')}</b>개</div>` : ''}
+        <div style="display:flex;gap:5px;flex-wrap:nowrap;overflow:hidden;min-height:28px;align-items:center;margin-top:4px;">
+          ${item.원가위안 ? `<div style="padding:3px 7px;border-radius:6px;border:1px solid var(--line);background:var(--bg);font-size:11px;font-weight:600;white-space:nowrap;">¥${escapeHtml(item.원가위안)}${item.최소오더수량?`·${escapeHtml(item.최소오더수량)}`:''}</div>` : ''}
+          ${item.원가위안2 ? `<div style="padding:3px 7px;border-radius:6px;border:1px solid var(--line);background:var(--bg);font-size:11px;font-weight:600;white-space:nowrap;">¥${escapeHtml(item.원가위안2)}${item.최소오더수량2?`·${escapeHtml(item.최소오더수량2)}`:''}</div>` : ''}
+          ${item.원가위안3 ? `<div style="padding:3px 7px;border-radius:6px;border:1px solid var(--line);background:var(--bg);font-size:11px;font-weight:600;white-space:nowrap;">¥${escapeHtml(item.원가위안3)}${item.최소오더수량3?`·${escapeHtml(item.최소오더수량3)}`:''}</div>` : ''}
         </div>
         <div class="card-sync ${syncClass}">
           <span class="sync-dot"></span>${syncLabel}
@@ -938,9 +938,9 @@ function detailSheetHtml(){
     ["원단 소재", it.원단소재명],
     ["원단 단가", it.원단단가 ? `${it.원단단가}원` : ''],
     ["컬러", it.컬러],
-    ["원가1", it.원가위안 ? `¥${it.원가위안} (≈${yuanToKrw(it.원가위안)?.toLocaleString()||''}원) · MOQ ${it.최소오더수량||'-'}개` : ''],
-    ["원가2", it.원가위안2 ? `¥${it.원가위안2} (≈${yuanToKrw(it.원가위안2)?.toLocaleString()||''}원) · MOQ ${it.최소오더수량2||'-'}개` : ''],
-    ["원가3", it.원가위안3 ? `¥${it.원가위안3} (≈${yuanToKrw(it.원가위안3)?.toLocaleString()||''}원) · MOQ ${it.최소오더수량3||'-'}개` : ''],
+    ["원가1", it.원가위안 ? `¥${it.원가위안} (≈${yuanToKrw(it.원가위안)?.toLocaleString()||''}원) · MOQ ${it.최소오더수량||'-'}개${it.최소오더수량&&yuanToKrw(it.원가위안) ? ` (≈${(yuanToKrw(it.원가위안)*Number(it.최소오더수량)).toLocaleString()}원)` : ''}` : ''],
+    ["원가2", it.원가위안2 ? `¥${it.원가위안2} (≈${yuanToKrw(it.원가위안2)?.toLocaleString()||''}원) · MOQ ${it.최소오더수량2||'-'}개${it.최소오더수량2&&yuanToKrw(it.원가위안2) ? ` (≈${(yuanToKrw(it.원가위안2)*Number(it.최소오더수량2)).toLocaleString()}원)` : ''}` : ''],
+    ["원가3", it.원가위안3 ? `¥${it.원가위안3} (≈${yuanToKrw(it.원가위안3)?.toLocaleString()||''}원) · MOQ ${it.최소오더수량3||'-'}개${it.최소오더수량3&&yuanToKrw(it.원가위안3) ? ` (≈${(yuanToKrw(it.원가위안3)*Number(it.최소오더수량3)).toLocaleString()}원)` : ''}` : ''],
     ["충전재 종류", it.충전재종류], ["필파워(FP)", it.필파워],
     ["충전재 중량", it.충전재중량 ? `${it.충전재중량}g` : ''],
     ["완제품 중량", it.완제품중량 ? `${it.완제품중량}g` : ''],
