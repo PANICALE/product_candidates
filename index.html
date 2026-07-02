@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#1C1B19">
 <title>셀렉트노트 — PANICALE</title>
 <link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
@@ -1348,7 +1349,7 @@ function selectBarHtml(){
       <button class="select-bar-btn" id="selectAllBtn">${state.selectedIds.length === filteredItems().length ? '전체해제' : '전체선택'}</button>
       <button class="select-bar-btn accent" id="statusChangeBtn">상태변경</button>
       <button class="select-bar-btn danger" id="bulkDeleteBtn">삭제</button>
-      <button class="select-bar-btn" id="selectCancelBtn">취소</button>
+      <button class="select-bar-btn" id="exportBtn" style="background:#E8F5E9;color:#2E7D32;border-color:#A5D6A7;">사진ZIP</button>
     </div>
   `;
 }
@@ -1381,11 +1382,13 @@ function bindSelectBar(){
     state.selectMode = false;
     render(); toast("휴지통으로 이동했습니다");
   });
-  document.getElementById("selectCancelBtn").addEventListener("click", ()=>{
-    state.selectMode = false;
-    state.selectedIds = [];
-    state.statusDropdownOpen = false;
-    render();
+  document.getElementById("exportBtn").addEventListener("click", async ()=>{
+    if(!state.selectedIds.length){ toast("선택된 항목이 없습니다"); return; }
+    const count = state.selectedIds.length;
+    const ok = confirm(`선택한 ${count}개 상품의 사진을\nZIP으로 다운로드할까요?`);
+    if(!ok) return;
+    const items = state.items.filter(i=>state.selectedIds.includes(i.local_id));
+    await exportPhotosZip(items);
   });
   document.querySelectorAll("[data-setstatus]").forEach(b=>{
     b.addEventListener("click", async ()=>{
@@ -1663,6 +1666,43 @@ function bindPhotoViewer(){
   el.addEventListener("touchend", (e)=>{
     if(e.touches.length < 2 && scale <= 1.05){ scale=1; img.style.transform='scale(1)'; }
   }, {passive:true});
+}
+
+/* ============== 사진 ZIP 내보내기 ============== */
+async function exportPhotosZip(items){
+  toast("ZIP 만드는 중... 잠시만요 ⏳");
+  const zip = new JSZip();
+
+  for(const item of items){
+    const vendor = (item.거래처명||'미입력').replace(/[\/\\?%*:|"<>]/g, '_');
+    const code = (item.상품코드||'미입력').replace(/[\/\\?%*:|"<>]/g, '_');
+    const photos = item.local_photos || [];
+
+    for(let i=0; i<photos.length; i++){
+      const photo = photos[i];
+      const fileName = `${vendor}/사진/${vendor}_${code}_${i+1}.jpg`;
+      try{
+        if(photo.startsWith("data:")){
+          const base64 = photo.split(",")[1];
+          zip.file(fileName, base64, {base64: true});
+        } else {
+          const res = await fetch(photo);
+          const blob = await res.blob();
+          zip.file(fileName, blob);
+        }
+      } catch(e){ console.error("사진 다운로드 실패:", fileName, e); }
+    }
+  }
+
+  const content = await zip.generateAsync({type:"blob"});
+  const url = URL.createObjectURL(content);
+  const a = document.createElement("a");
+  a.href = url;
+  const date = new Date().toLocaleDateString('ko-KR').replace(/\. /g,'-').replace('.','');
+  a.download = `셀렉트노트_${date}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast("✅ 다운로드 완료!");
 }
 
 /* ============== PULL TO REFRESH ============== */
