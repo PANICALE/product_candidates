@@ -1548,6 +1548,7 @@ async function init(){
   state.items = await dbGetAll();
   await restoreSession();
   render();
+  if(state.session && navigator.onLine) runSync();
   window.addEventListener("online", ()=>render());
   window.addEventListener("offline", ()=>render());
   setupPullToRefresh();
