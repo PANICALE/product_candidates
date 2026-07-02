@@ -676,7 +676,11 @@ function openNewItem(){
     거래처명: lastVendor, 상품코드:"",
     상태:"대기",
     충전재종류:"", 필파워:"", 충전재중량:"", 완제품중량:"",
-    원단소재명:"", 원단단가:"", 컬러:"", 원가위안:"", 최소오더수량:"", 메모:"",
+    원단소재명:"", 원단단가:"", 컬러:"", 
+    원가위안:"", 최소오더수량:"",
+    원가위안2:"", 최소오더수량2:"",
+    원가위안3:"", 최소오더수량3:"",
+    메모:"",
     local_photos: [],
     synced:false,
     created_at: new Date().toISOString(),
@@ -742,14 +746,31 @@ function formSheetHtml(){
           <div class="field"><label>원단 단가</label><input data-field="원단단가" type="number" inputmode="decimal" value="${escapeAttr(it.원단단가)}" placeholder="원/yd"></div>
           <div class="field"><label>컬러</label><input data-field="컬러" value="${escapeAttr(it.컬러)}" placeholder="예: 블랙"></div>
         </div>
-        <div class="field">
-          <label>원가 (위안 ¥)</label>
-          <input data-field="원가위안" id="priceInput" type="number" inputmode="decimal" value="${escapeAttr(it.원가위안)}" placeholder="예: 100">
-          <div id="krwDisplay" style="font-size:12.5px;color:var(--accent);font-weight:600;margin-top:5px;">
-            ${krw ? `≈ ${krw.toLocaleString()}원 (×1.1, 190원/¥ 기준)` : ''}
-          </div>
-        </div>
-        <div class="field"><label>최소오더수량(MOQ)</label><input data-field="최소오더수량" type="number" inputmode="numeric" value="${escapeAttr(it.최소오더수량)}" placeholder="예: 300"></div>
+        ${[1,2,3].map(n => {
+          const priceKey = n===1 ? '원가위안' : `원가위안${n}`;
+          const moqKey = n===1 ? '최소오더수량' : `최소오더수량${n}`;
+          const krw = yuanToKrw(it[priceKey]);
+          const moqTotal = (krw && it[moqKey]) ? krw * Number(it[moqKey]) : null;
+          return `
+          <div style="background:var(--accent-soft);border-radius:10px;padding:12px;margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px;">옵션 ${n}</div>
+            <div class="field-row">
+              <div class="field">
+                <label>원가 (¥)</label>
+                <input data-field="${priceKey}" data-pricekey="${priceKey}" data-moqkey="${moqKey}" data-dispidx="${n}"
+                  type="number" inputmode="decimal" value="${escapeAttr(it[priceKey])}" placeholder="예: 100">
+              </div>
+              <div class="field">
+                <label>MOQ</label>
+                <input data-field="${moqKey}" data-pricekey="${priceKey}" data-moqkey="${moqKey}" data-dispidx="${n}"
+                  type="number" inputmode="numeric" value="${escapeAttr(it[moqKey])}" placeholder="예: 300">
+              </div>
+            </div>
+            <div id="priceDisp${n}" style="font-size:12px;color:var(--accent);font-weight:600;margin-top:4px;">
+              ${krw ? `≈ ${krw.toLocaleString()}원/개${moqTotal ? ` · MOQ ${Number(it[moqKey]).toLocaleString()}개 총 ≈ ${moqTotal.toLocaleString()}원` : ''}` : ''}
+            </div>
+          </div>`;
+        }).join("")}
       </div>
 
       <div class="field-group">
@@ -803,10 +824,15 @@ function bindFormSheet(){
   document.querySelectorAll("[data-field]").forEach(inp=>{
     inp.addEventListener("input", (e)=>{
       state.editingItem[inp.dataset.field] = e.target.value;
-      if(inp.dataset.field === "원가위안"){
-        const krw = yuanToKrw(e.target.value);
-        const disp = document.getElementById("krwDisplay");
-        if(disp) disp.textContent = krw ? `≈ ${krw.toLocaleString()}원 (×1.1, 190원/¥ 기준)` : '';
+      if(inp.dataset.pricekey){
+        const priceKey = inp.dataset.pricekey;
+        const moqKey = inp.dataset.moqkey;
+        const idx = inp.dataset.dispidx;
+        const krw = yuanToKrw(state.editingItem[priceKey]);
+        const moq = Number(state.editingItem[moqKey]);
+        const moqTotal = (krw && moq) ? krw * moq : null;
+        const disp = document.getElementById(`priceDisp${idx}`);
+        if(disp) disp.textContent = krw ? `≈ ${krw.toLocaleString()}원/개${moqTotal ? ` · MOQ ${moq.toLocaleString()}개 총 ≈ ${moqTotal.toLocaleString()}원` : ''}` : '';
       }
     });
   });
@@ -899,9 +925,9 @@ function detailSheetHtml(){
     ["원단 소재", it.원단소재명],
     ["원단 단가", it.원단단가 ? `${it.원단단가}원` : ''],
     ["컬러", it.컬러],
-    ["원가", it.원가위안 ? `¥${it.원가위안} (≈${krw ? krw.toLocaleString() : ''}원)` : ''],
-    ["최소오더수량", it.최소오더수량 ? `${it.최소오더수량}개` : ''],
-    ["MOQ 총액", moqTotal ? `≈ ${moqTotal.toLocaleString()}원` : ''],
+    ["원가1", it.원가위안 ? `¥${it.원가위안} (≈${yuanToKrw(it.원가위안)?.toLocaleString()||''}원) · MOQ ${it.최소오더수량||'-'}개` : ''],
+    ["원가2", it.원가위안2 ? `¥${it.원가위안2} (≈${yuanToKrw(it.원가위안2)?.toLocaleString()||''}원) · MOQ ${it.최소오더수량2||'-'}개` : ''],
+    ["원가3", it.원가위안3 ? `¥${it.원가위안3} (≈${yuanToKrw(it.원가위안3)?.toLocaleString()||''}원) · MOQ ${it.최소오더수량3||'-'}개` : ''],
     ["충전재 종류", it.충전재종류], ["필파워(FP)", it.필파워],
     ["충전재 중량", it.충전재중량 ? `${it.충전재중량}g` : ''],
     ["완제품 중량", it.완제품중량 ? `${it.완제품중량}g` : ''],
@@ -1005,7 +1031,10 @@ async function runSync(){
         충전재종류: item.충전재종류, 필파워: numOrNull(item.필파워),
         충전재중량: numOrNull(item.충전재중량), 완제품중량: numOrNull(item.완제품중량),
         원단소재명: item.원단소재명, 원단단가: numOrNull(item.원단단가),
-        컬러: item.컬러, 원가위안: numOrNull(item.원가위안), 최소오더수량: numOrNull(item.최소오더수량),
+        컬러: item.컬러, 
+        원가위안: numOrNull(item.원가위안), 최소오더수량: numOrNull(item.최소오더수량),
+        원가위안2: numOrNull(item.원가위안2), 최소오더수량2: numOrNull(item.최소오더수량2),
+        원가위안3: numOrNull(item.원가위안3), 최소오더수량3: numOrNull(item.최소오더수량3),
         상태: item.상태 || '대기',
         메모: item.메모,
         사진url배열: photoUrls
@@ -1050,10 +1079,49 @@ async function runSync(){
     }
   }
 
+  // PULL: 서버 전체 데이터 받아오기
+  try{
+    const pullRes = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?select=*&deleted_at=is.null`, {
+      headers:{
+        "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
+        "apikey": SUPABASE_ANON_KEY
+      }
+    });
+    if(pullRes.ok){
+      const rows = await pullRes.json();
+      for(const row of rows){
+        const existing = state.items.find(i=>i.remote_id === row.id);
+        if(existing && !existing.synced) continue; // 로컬에 미동기화 변경사항 있으면 덮지 않음
+        const mapped = {
+          local_id: existing ? existing.local_id : uid(),
+          remote_id: row.id,
+          created_by: row.created_by,
+          카테고리: row.카테고리, 거래처명: row.거래처명, 상품코드: row.상품코드,
+          충전재종류: row.충전재종류, 필파워: row.필파워,
+          충전재중량: row.충전재중량, 완제품중량: row.완제품중량,
+          원단소재명: row.원단소재명, 원단단가: row.원단단가,
+          컬러: row.컬러, 
+          원가위안: row.원가위안, 최소오더수량: row.최소오더수량,
+          원가위안2: row.원가위안2, 최소오더수량2: row.최소오더수량2,
+          원가위안3: row.원가위안3, 최소오더수량3: row.최소오더수량3,
+          상태: row.상태||'대기', 메모: row.메모,
+          local_photos: row.사진url배열||[],
+          사진url배열_existing: row.사진url배열||[],
+          synced: true,
+          created_at: row.created_at,
+        };
+        await dbPut(mapped);
+        const idx = state.items.findIndex(i=>i.remote_id === row.id);
+        if(idx >= 0) state.items[idx] = mapped;
+        else state.items.push(mapped);
+      }
+    }
+  } catch(e){ console.error("pull 실패:", e); }
+
   state.syncing = false;
   render();
   if(failCount===0){
-    toast(`${successCount}건 동기화 완료`);
+    toast(`${successCount}건 업로드, 전체 데이터 갱신 완료`);
   } else {
     toast(`${successCount}건 성공, ${failCount}건 실패 — 다시 시도해주세요`);
   }
