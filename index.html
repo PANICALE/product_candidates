@@ -78,7 +78,6 @@
     border:1px solid var(--line);background:var(--bg-elevated);white-space:nowrap;
   }
   .sync-pill.pending{color:var(--warn);border-color:#F0CFC0;background:#FBF1EB;}
-  .sync-pill.synced{color:var(--ok);border-color:#CFE0D5;background:var(--ok-soft);}
   .sync-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
   .sync-dot.pulse{animation:pulse 1.4s ease-in-out infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
@@ -318,7 +317,6 @@
 /* ============== CONFIG ============== */
 const SUPABASE_URL = "https://ykxdsavvfngidltiprkz.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlreGRzYXZ2Zm5naWRsdGlwcmt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTg5OTksImV4cCI6MjA5ODM5NDk5OX0.Qtbod7Q6Eln96HHOfXyA_puPeHo-2HfnMW8CtIIOtA0";
-const TEAM_PIN = "7022"; // 필요시 변경
 const TABLE = "product_candidates";
 const BUCKET = "photos";
 
@@ -326,53 +324,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, storage: window.localStorage }
 });
 
-/* ============== INDEXEDDB (offline store) ============== */
-const DB_NAME = "sourcing_offline_db";
-const DB_VERSION = 1;
-let db;
-function openDB(){
-  return new Promise((resolve,reject)=>{
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e)=>{
-      const d = e.target.result;
-      if(!d.objectStoreNames.contains("items")){
-        d.createObjectStore("items",{keyPath:"local_id"});
-      }
-    };
-    req.onsuccess = ()=>{ db = req.result; resolve(db); };
-    req.onerror = ()=>reject(req.error);
-  });
-}
-function dbPut(item){
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction("items","readwrite");
-    tx.objectStore("items").put(item);
-    tx.oncomplete = ()=>resolve();
-    tx.onerror = ()=>reject(tx.error);
-  });
-}
-function dbDelete(local_id){
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction("items","readwrite");
-    tx.objectStore("items").delete(local_id);
-    tx.oncomplete = ()=>resolve();
-    tx.onerror = ()=>reject(tx.error);
-  });
-}
-function dbGetAll(){
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction("items","readonly");
-    const req = tx.objectStore("items").getAll();
-    req.onsuccess = ()=>resolve(req.result);
-    req.onerror = ()=>reject(req.error);
-  });
-}
-
 /* ============== STATE ============== */
 let state = {
-  authed: sessionStorage.getItem("authed") === "1",
-  pinInput: "",
-  pinError: "",
   items: [],
   search: "",
   catFilter: "전체",
@@ -381,12 +334,10 @@ let state = {
   sheetOpen: false,
   editingItem: null, // null = closed, object = editing/creating
   detailItem: null,
-  syncing: false,
   trashOpen: false,
   photoViewer: null,
   session: null,
   isAdmin: false,
-  loginModalOpen: false,
   loginEmail: "",
   loginPassword: "",
   loginError: "",
@@ -413,68 +364,62 @@ function toast(msg){
 /* ============== RENDER ROOT ============== */
 function render(){
   const app = document.getElementById("app");
-  if(!state.authed){
-    app.innerHTML = renderPin();
-    bindPin();
+  if(!state.session){
+    app.innerHTML = renderLoginPage();
+    bindLoginPage();
     return;
   }
   app.innerHTML = renderMain();
   bindMain();
 }
 
-/* ============== PIN SCREEN ============== */
-function renderPin(){
-  const dots = Array.from({length:4}).map((_,i)=>
-    `<div class="pin-dot ${i < state.pinInput.length ? 'filled':''}"></div>`
-  ).join("");
-  const keys = [1,2,3,4,5,6,7,8,9,'','0','del'];
-  const keysHtml = keys.map(k=>{
-    if(k==='') return `<div></div>`;
-    if(k==='del') return `<button class="pin-key ghost" data-key="del">⌫</button>`;
-    return `<button class="pin-key" data-key="${k}">${k}</button>`;
-  }).join("");
+/* ============== LOGIN PAGE (PIN 화면 대체) ============== */
+function renderLoginPage(){
   return `
     <div class="pin-screen">
       <div style="text-align:center;">
         <img src="data:image/png;base64,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" alt="PANICALE" style="width:160px;height:auto;display:block;margin:0 auto 4px;">
         <div class="pin-title">셀렉트노트</div>
       </div>
-      <div class="pin-dots">${dots}</div>
-      <div class="pin-error">${state.pinError}</div>
-      <div class="pin-pad">${keysHtml}</div>
+      <div style="width:100%;max-width:320px;">
+        <div class="field"><label>이메일</label><input id="loginEmailInput" type="email" value="${escapeAttr(state.loginEmail)}" placeholder="you@panicale.com" autocapitalize="off"></div>
+        <div class="field"><label>비밀번호</label><input id="loginPasswordInput" type="password" value="${escapeAttr(state.loginPassword)}" placeholder="비밀번호"></div>
+        ${state.loginError ? `<div style="color:var(--warn);font-size:13px;margin-bottom:10px;">${escapeHtml(state.loginError)}</div>` : ''}
+        <button class="cat-btn active" id="loginSubmitBtn" style="width:100%;padding:13px;font-size:15px;" ${state.loginLoading?'disabled':''}>
+          ${state.loginLoading ? '로그인 중…' : '로그인'}
+        </button>
+        <div style="font-size:12px;color:var(--ink-soft);margin-top:14px;text-align:center;">계정이 없으면 관리자에게 문의해주세요</div>
+      </div>
     </div>
   `;
 }
-function bindPin(){
-  document.querySelectorAll(".pin-key").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      const k = btn.dataset.key;
-      if(k === "del"){
-        state.pinInput = state.pinInput.slice(0,-1);
-        state.pinError = "";
-      } else if(state.pinInput.length < 4){
-        state.pinInput += k;
-        state.pinError = "";
-      }
-      if(state.pinInput.length === 4){
-        if(state.pinInput === TEAM_PIN){
-          state.authed = true;
-          sessionStorage.setItem("authed","1");
-          state.pinInput = "";
-          init();
-        } else {
-          state.pinError = "PIN이 올바르지 않습니다";
-          setTimeout(()=>{ state.pinInput=""; render(); }, 500);
-        }
-      }
-      render();
-    });
+function bindLoginPage(){
+  document.getElementById("loginEmailInput").addEventListener("input", (e)=>{ state.loginEmail = e.target.value; });
+  document.getElementById("loginPasswordInput").addEventListener("input", (e)=>{ state.loginPassword = e.target.value; });
+  document.getElementById("loginPasswordInput").addEventListener("keydown", (e)=>{ if(e.key === "Enter") doLoginPage(); });
+  document.getElementById("loginSubmitBtn").addEventListener("click", doLoginPage);
+}
+async function doLoginPage(){
+  if(!state.loginEmail || !state.loginPassword){
+    state.loginError = "이메일과 비밀번호를 입력해주세요"; render(); return;
+  }
+  state.loginLoading = true; state.loginError = ""; render();
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: state.loginEmail, password: state.loginPassword
   });
+  state.loginLoading = false;
+  if(error){ state.loginError = "로그인 실패: 이메일 또는 비밀번호를 확인해주세요"; render(); return; }
+  state.session = data.session;
+  await refreshIsAdmin();
+  render();
+  try{
+    state.items = await fetchItems();
+  } catch(e){ toast("데이터를 불러오지 못했습니다"); }
+  render();
+  toast("로그인되었습니다");
 }
 
 /* ============== MAIN SCREEN ============== */
-function pendingCount(){ return state.items.filter(i=>!i.synced).length; }
-
 function filteredItems(){
   let list = [...state.items].filter(i=>!i.deleted_at).sort((a,b)=> (b.created_at||'').localeCompare(a.created_at||''));
   if(state.catFilter !== "전체"){
@@ -497,12 +442,6 @@ function filteredItems(){
 }
 
 function renderMain(){
-  const pending = pendingCount();
-  const syncPillClass = !state.session ? 'pending' : navigator.onLine ? (pending>0 ? 'pending' : 'synced') : 'pending';
-  const syncLabel = !state.session ? `로컬 기록중` :
-                     !navigator.onLine ? `오프라인 · 대기 ${pending}` :
-                     pending>0 ? `대기 ${pending}건` : `모두 동기화됨`;
-
   const items = filteredItems();
   const listHtml = items.length ? `<div class="grid">${items.map(cardHtml).join("")}</div>` : emptyStateHtml();
 
@@ -513,10 +452,6 @@ function renderMain(){
           <img src="data:image/png;base64,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" alt="PANICALE" style="width:88px;height:auto;display:block;margin-bottom:2px;">
           <div class="brand-name">셀렉트노트</div>
         </div>
-      <button class="sync-pill ${syncPillClass}" id="syncBtn">
-          <span class="sync-dot ${state.syncing?'pulse':''}"></span>
-          ${state.syncing ? '동기화 중…' : syncLabel}
-        </button>
       </div>
       <div class="search-row">
         <div class="search-box">
@@ -551,7 +486,6 @@ function renderMain(){
     ${state.trashOpen ? trashSheetHtml() : ''}
     ${state.photoViewer ? photoViewerHtml() : ''}
     ${state.selectMode ? selectBarHtml() : ''}
-    ${state.loginModalOpen ? loginModalHtml() : ''}
   `;
 }
 
@@ -574,8 +508,6 @@ function emptyStateHtml(){
 
 function cardHtml(item){
   const photo = (item.local_photos && item.local_photos[0]) ? item.local_photos[0] : null;
-  const syncClass = item.synced ? 'synced' : 'pending';
-  const syncLabel = item.synced ? '동기화됨' : '대기중';
   return `
     <div class="card ${state.selectMode && state.selectedIds.includes(item.local_id) ? 'selected' : ''}" data-id="${item.local_id}">
       <div class="card-thumb">
@@ -599,9 +531,6 @@ function cardHtml(item){
           ${item.원가위안 ? `<div style="padding:3px 7px;border-radius:6px;border:1px solid var(--line);background:var(--bg);font-size:11px;font-weight:600;white-space:nowrap;">¥${escapeHtml(item.원가위안)}${item.최소오더수량?`·${escapeHtml(item.최소오더수량)}`:''}</div>` : ''}
           ${item.원가위안2 ? `<div style="padding:3px 7px;border-radius:6px;border:1px solid var(--line);background:var(--bg);font-size:11px;font-weight:600;white-space:nowrap;">¥${escapeHtml(item.원가위안2)}${item.최소오더수량2?`·${escapeHtml(item.최소오더수량2)}`:''}</div>` : ''}
           ${item.원가위안3 ? `<div style="padding:3px 7px;border-radius:6px;border:1px solid var(--line);background:var(--bg);font-size:11px;font-weight:600;white-space:nowrap;">¥${escapeHtml(item.원가위안3)}${item.최소오더수량3?`·${escapeHtml(item.최소오더수량3)}`:''}</div>` : ''}
-        </div>
-        <div class="card-sync ${syncClass}">
-          <span class="sync-dot"></span>${syncLabel}
         </div>
       </div>
     </div>
@@ -633,10 +562,6 @@ function bindMain(){
   if(addBtn) addBtn.addEventListener("click", openNewItem);
   document.getElementById("brandRefreshBtn").addEventListener("click", ()=>{
     location.reload();
-  });
-  document.getElementById("syncBtn").addEventListener("click", ()=>{
-    if(!state.session){ openLoginModal(); return; }
-    runSync();
   });
   const logoutBtn = document.getElementById("logoutBtn");
   if(logoutBtn) logoutBtn.addEventListener("click", doLogout);
@@ -755,7 +680,9 @@ function formSheetHtml(){
         <div class="field-group-label">사진 <span style="font-size:10px;color:var(--ink-soft);font-weight:400;letter-spacing:0;">꾹 눌러서 순서 변경</span></div>
         <div class="photo-row" id="photoSortRow">
           ${photosHtml}
-          <button class="photo-add" id="photoAddBtn">＋</button>
+          <button class="photo-add" id="photoCameraBtn" title="촬영">📷</button>
+          <button class="photo-add" id="photoAddBtn" title="앨범에서 선택">＋</button>
+          <input type="file" id="photoCameraInput" accept="image/*" capture="environment" style="display:none;">
           <input type="file" id="photoInput" accept="image/*" multiple style="display:none;">
         </div>
       </div>
@@ -862,6 +789,10 @@ function bindFormSheet(){
       }
     });
   });
+  document.getElementById("photoCameraBtn").addEventListener("click", ()=>{
+    document.getElementById("photoCameraInput").click();
+  });
+  document.getElementById("photoCameraInput").addEventListener("change", handlePhotoSelect);
   document.getElementById("photoAddBtn").addEventListener("click", ()=>{
     document.getElementById("photoInput").click();
   });
@@ -876,13 +807,25 @@ function bindFormSheet(){
   if(delBtn){
     delBtn.addEventListener("click", async ()=>{
       if(confirm("휴지통으로 이동할까요? 30일 후 자동 삭제됩니다.")){
-        state.editingItem.deleted_at = new Date().toISOString();
-        state.editingItem.synced = false;
-        await dbPut(state.editingItem);
-        const deletedId = state.editingItem.local_id;
-        state.items = state.items.map(i=> i.local_id === deletedId ? {...i, deleted_at: new Date().toISOString()} : i);
-        closeSheet();
-        toast("휴지통으로 이동했습니다");
+        const it = state.editingItem;
+        const deletedAt = new Date().toISOString();
+        try{
+          if(it.remote_id){
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${it.remote_id}`, {
+              method:"PATCH",
+              headers:{
+                "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
+                "apikey": SUPABASE_ANON_KEY,
+                "Content-Type":"application/json"
+              },
+              body: JSON.stringify({ deleted_at: deletedAt })
+            });
+            if(!res.ok) throw new Error("delete failed");
+          }
+          state.items = state.items.map(i=> i.local_id === it.local_id ? {...i, deleted_at: deletedAt} : i);
+          closeSheet();
+          toast("휴지통으로 이동했습니다");
+        } catch(e){ toast("삭제 실패, 인터넷 연결을 확인해주세요"); }
       }
     });
   }
@@ -930,14 +873,99 @@ async function saveItem(){
     toast("상품코드를 입력해주세요");
     return;
   }
-  it.synced = false; // any edit marks as pending re-sync
-  it.updated_at = new Date().toISOString();
-  await dbPut(it);
-  const idx = state.items.findIndex(i=>i.local_id === it.local_id);
-  if(idx >= 0) state.items[idx] = it; else state.items.push(it);
-  closeSheet();
-  toast(it.isNew ? "저장되었습니다" : "수정되었습니다");
-  if(state.session && navigator.onLine) runSync();
+  toast("저장 중...");
+  try{
+    // data: URL로 남아있는(=아직 업로드 안 된) 사진만 업로드, 나머지는 기존 URL 그대로 사용
+    const photoUrls = [];
+    const photos = it.local_photos || [];
+    for(let i=0;i<photos.length;i++){
+      const p = photos[i];
+      if(p.startsWith("data:")){
+        const blob = await (await fetch(p)).blob();
+        const path = `${it.local_id}/${i}.jpg`;
+        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+          method:"POST",
+          headers:{
+            "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
+            "apikey": SUPABASE_ANON_KEY,
+            "Content-Type":"image/jpeg",
+            "x-upsert":"true"
+          },
+          body: blob
+        });
+        if(uploadRes.ok){
+          photoUrls.push(`${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`);
+        }
+      } else {
+        photoUrls.push(p);
+      }
+    }
+
+    const payload = {
+      카테고리: it.카테고리, 거래처명: it.거래처명, 상품코드: it.상품코드,
+      충전재종류: it.충전재종류, 필파워: numOrNull(it.필파워),
+      충전재중량: numOrNull(it.충전재중량), 완제품중량: numOrNull(it.완제품중량),
+      원단소재명: it.원단소재명, 원단단가: numOrNull(it.원단단가),
+      컬러: it.컬러,
+      원가위안: numOrNull(it.원가위안), 최소오더수량: numOrNull(it.최소오더수량),
+      원가위안2: numOrNull(it.원가위안2), 최소오더수량2: numOrNull(it.최소오더수량2),
+      원가위안3: numOrNull(it.원가위안3), 최소오더수량3: numOrNull(it.최소오더수량3),
+      상태: it.상태 || '대기',
+      메모: it.메모,
+      사진url배열: photoUrls,
+      deleted_at: it.deleted_at || null
+    };
+
+    let res;
+    if(it.remote_id){
+      res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${it.remote_id}`, {
+        method:"PATCH",
+        headers:{
+          "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
+          "apikey": SUPABASE_ANON_KEY,
+          "Content-Type":"application/json",
+          "Prefer":"return=representation"
+        },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
+        method:"POST",
+        headers:{
+          "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
+          "apikey": SUPABASE_ANON_KEY,
+          "Content-Type":"application/json",
+          "Prefer":"return=representation"
+        },
+        body: JSON.stringify(payload)
+      });
+    }
+    if(!res.ok) throw new Error("save failed");
+    const data = await res.json();
+    const row = data[0];
+    const mapped = {
+      local_id: row.id, remote_id: row.id, created_by: row.created_by,
+      카테고리: row.카테고리, 거래처명: row.거래처명, 상품코드: row.상품코드,
+      충전재종류: row.충전재종류, 필파워: row.필파워,
+      충전재중량: row.충전재중량, 완제품중량: row.완제품중량,
+      원단소재명: row.원단소재명, 원단단가: row.원단단가,
+      컬러: row.컬러,
+      원가위안: row.원가위안, 최소오더수량: row.최소오더수량,
+      원가위안2: row.원가위안2, 최소오더수량2: row.최소오더수량2,
+      원가위안3: row.원가위안3, 최소오더수량3: row.최소오더수량3,
+      상태: row.상태||'대기', 메모: row.메모,
+      local_photos: row.사진url배열||[],
+      사진url배열_existing: row.사진url배열||[],
+      deleted_at: row.deleted_at || null,
+      created_at: row.created_at,
+    };
+    const idx = state.items.findIndex(i=>i.local_id === it.local_id || (mapped.remote_id && i.remote_id === mapped.remote_id));
+    if(idx >= 0) state.items[idx] = mapped; else state.items.push(mapped);
+    closeSheet();
+    toast(it.isNew ? "저장되었습니다" : "수정되었습니다");
+  } catch(e){
+    toast("저장 실패, 인터넷 연결을 확인해주세요");
+  }
 }
 
 /* ============== DETAIL SHEET ============== */
@@ -986,9 +1014,6 @@ function detailSheetHtml(){
         ${rows.map(([l,v])=>`<div class="detail-row"><div class="detail-label">${l}</div><div class="detail-value">${escapeHtml(String(v))}</div></div>`).join("")}
       </div>
       ${it.메모 ? `<div class="detail-memo">${escapeHtml(it.메모)}</div>` : ''}
-      <div style="margin-top:16px;font-size:12px;color:var(--ink-soft);">
-        ${it.synced ? '✓ 동기화됨' : '⏳ 동기화 대기 중'}
-      </div>
     </div>
   </div>
   `;
@@ -1014,196 +1039,75 @@ function bindDetailSheet(){
       openEditItem(state.detailItem);
     });
   }
-  // 상태 변경 (상세화면에서 바로 변경 + 즉시 로컬 저장)
+  // 상태 변경 (상세화면에서 바로 변경 + Supabase에 즉시 반영)
   document.querySelectorAll("[data-detailstatus]").forEach(b=>{
     b.addEventListener("click", async ()=>{
       const newStatus = b.dataset.detailstatus;
-      state.detailItem.상태 = newStatus;
-      state.detailItem.synced = false;
-      state.detailItem.updated_at = new Date().toISOString();
-      await dbPut(state.detailItem);
-      const idx = state.items.findIndex(i=>i.local_id === state.detailItem.local_id);
-      if(idx >= 0) state.items[idx] = state.detailItem;
-      render();
-      toast(`상태를 "${newStatus}"로 변경했습니다`);
-      if(state.session && navigator.onLine) runSync();
+      const it = state.detailItem;
+      try{
+        if(it.remote_id){
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${it.remote_id}`, {
+            method:"PATCH",
+            headers:{
+              "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
+              "apikey": SUPABASE_ANON_KEY,
+              "Content-Type":"application/json"
+            },
+            body: JSON.stringify({ 상태: newStatus })
+          });
+          if(!res.ok) throw new Error("status update failed");
+        }
+        it.상태 = newStatus;
+        const idx = state.items.findIndex(i=>i.local_id === it.local_id);
+        if(idx >= 0) state.items[idx] = it;
+        render();
+        toast(`상태를 "${newStatus}"로 변경했습니다`);
+      } catch(e){ toast("상태 변경 실패, 인터넷 연결을 확인해주세요"); }
     });
   });
 }
 
-/* ============== SYNC TO SUPABASE ============== */
-async function runSync(){
-  if(state.syncing) return;
-  if(!navigator.onLine){ toast("오프라인 상태입니다. 인터넷 연결 후 다시 시도하세요"); return; }
-  if(!state.session){ openLoginModal(); return; }
-  const pending = state.items.filter(i=>!i.synced);
-  state.syncing = true;
-  render();
-
-  let successCount = 0, failCount = 0;
-
-  for(const item of pending){
-    try{
-      // upload photos first
-      const photoUrls = [];
-      for(let i=0;i<(item.local_photos||[]).length;i++){
-        const dataUrl = item.local_photos[i];
-        const blob = await (await fetch(dataUrl)).blob();
-        const path = `${item.local_id}/${i}.jpg`;
-        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
-          method:"POST",
-          headers:{
-            "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
-            "apikey": SUPABASE_ANON_KEY,
-            "Content-Type":"image/jpeg",
-            "x-upsert":"true"
-          },
-          body: blob
-        });
-        if(uploadRes.ok || uploadRes.status===200 || uploadRes.status===201){
-          photoUrls.push(`${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`);
-        }
-      }
-
-      const payload = {
-        카테고리: item.카테고리, 거래처명: item.거래처명, 상품코드: item.상품코드,
-        충전재종류: item.충전재종류, 필파워: numOrNull(item.필파워),
-        충전재중량: numOrNull(item.충전재중량), 완제품중량: numOrNull(item.완제품중량),
-        원단소재명: item.원단소재명, 원단단가: numOrNull(item.원단단가),
-        컬러: item.컬러, 
-        원가위안: numOrNull(item.원가위안), 최소오더수량: numOrNull(item.최소오더수량),
-        원가위안2: numOrNull(item.원가위안2), 최소오더수량2: numOrNull(item.최소오더수량2),
-        원가위안3: numOrNull(item.원가위안3), 최소오더수량3: numOrNull(item.최소오더수량3),
-        상태: item.상태 || '대기',
-        메모: item.메모,
-        사진url배열: photoUrls
-      };
-
-      let res;
-      if(item.remote_id){
-        res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${item.remote_id}`, {
-          method:"PATCH",
-          headers:{
-            "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
-            "apikey": SUPABASE_ANON_KEY,
-            "Content-Type":"application/json",
-            "Prefer":"return=representation"
-          },
-          body: JSON.stringify(payload)
-        });
-      } else {
-        res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
-          method:"POST",
-          headers:{
-            "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
-            "apikey": SUPABASE_ANON_KEY,
-            "Content-Type":"application/json",
-            "Prefer":"return=representation"
-          },
-          body: JSON.stringify(payload)
-        });
-      }
-
-      if(res.ok){
-        const data = await res.json();
-        item.synced = true;
-        item.remote_id = data[0]?.id || item.remote_id;
-        await dbPut(item);
-        successCount++;
-      } else {
-        failCount++;
-      }
-    } catch(err){
-      failCount++;
+/* ============== FETCH FROM SUPABASE ============== */
+async function fetchItems(){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?select=*`, {
+    headers:{
+      "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
+      "apikey": SUPABASE_ANON_KEY
     }
-  }
-
-  // PULL: 서버 전체 데이터 받아오기
-  try{
-    const pullRes = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?select=*&deleted_at=is.null`, {
-      headers:{
-        "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
-        "apikey": SUPABASE_ANON_KEY
-      }
-    });
-    if(pullRes.ok){
-      const rows = await pullRes.json();
-      for(const row of rows){
-        const existing = state.items.find(i=>i.remote_id === row.id);
-        if(existing && !existing.synced) continue; // 로컬에 미동기화 변경사항 있으면 덮지 않음
-        const mapped = {
-          local_id: existing ? existing.local_id : uid(),
-          remote_id: row.id,
-          created_by: row.created_by,
-          카테고리: row.카테고리, 거래처명: row.거래처명, 상품코드: row.상품코드,
-          충전재종류: row.충전재종류, 필파워: row.필파워,
-          충전재중량: row.충전재중량, 완제품중량: row.완제품중량,
-          원단소재명: row.원단소재명, 원단단가: row.원단단가,
-          컬러: row.컬러, 
-          원가위안: row.원가위안, 최소오더수량: row.최소오더수량,
-          원가위안2: row.원가위안2, 최소오더수량2: row.최소오더수량2,
-          원가위안3: row.원가위안3, 최소오더수량3: row.최소오더수량3,
-          상태: row.상태||'대기', 메모: row.메모,
-          local_photos: row.사진url배열||[],
-          사진url배열_existing: row.사진url배열||[],
-          synced: true,
-          created_at: row.created_at,
-        };
-        await dbPut(mapped);
-        const idx = state.items.findIndex(i=>i.remote_id === row.id);
-        if(idx >= 0) state.items[idx] = mapped;
-        else state.items.push(mapped);
-      }
-    }
-  } catch(e){ console.error("pull 실패:", e); }
-
-  // PULL: 서버 전체 데이터 받아오기
-  try{
-    const pullRes = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?select=*`, {
-      headers:{
-        "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
-        "apikey": SUPABASE_ANON_KEY
-      }
-    });
-    if(pullRes.ok){
-      const rows = await pullRes.json();
-      for(const row of rows){
-        if(row.deleted_at) continue;
-        const existing = state.items.find(i=>i.remote_id === row.id);
-        if(existing && !existing.synced) continue;
-        const mapped = {
-          local_id: existing ? existing.local_id : uid(),
-          remote_id: row.id,
-          created_by: row.created_by,
-          카테고리: row.카테고리, 거래처명: row.거래처명, 상품코드: row.상품코드,
-          충전재종류: row.충전재종류, 필파워: row.필파워,
-          충전재중량: row.충전재중량, 완제품중량: row.완제품중량,
-          원단소재명: row.원단소재명, 원단단가: row.원단단가,
-          컬러: row.컬러,
-          원가위안: row.원가위안, 최소오더수량: row.최소오더수량,
-          원가위안2: row.원가위안2, 최소오더수량2: row.최소오더수량2,
-          원가위안3: row.원가위안3, 최소오더수량3: row.최소오더수량3,
-          상태: row.상태||'대기', 메모: row.메모,
-          local_photos: row.사진url배열||[],
-          사진url배열_existing: row.사진url배열||[],
-          synced: true,
-          created_at: row.created_at,
-        };
-        await dbPut(mapped);
-        const idx = state.items.findIndex(i=>i.remote_id === row.id);
-        if(idx >= 0) state.items[idx] = mapped;
-        else state.items.push(mapped);
-      }
-    }
-  } catch(e){ console.error("pull 실패:", e); }
-
-  state.syncing = false;
-  render();
-  if(failCount===0){
-    toast(`전체 데이터 갱신 완료${successCount > 0 ? ` (${successCount}건 업로드)` : ''}`);
-  } else {
-    toast(`${successCount}건 성공, ${failCount}건 실패`);
-  }
+  });
+  if(!res.ok) throw new Error("fetch failed");
+  const rows = await res.json();
+  return rows.map(row => ({
+    local_id: row.id,
+    remote_id: row.id,
+    created_by: row.created_by,
+    카테고리: row.카테고리, 거래처명: row.거래처명, 상품코드: row.상품코드,
+    충전재종류: row.충전재종류, 필파워: row.필파워,
+    충전재중량: row.충전재중량, 완제품중량: row.완제품중량,
+    원단소재명: row.원단소재명, 원단단가: row.원단단가,
+    컬러: row.컬러,
+    원가위안: row.원가위안, 최소오더수량: row.최소오더수량,
+    원가위안2: row.원가위안2, 최소오더수량2: row.최소오더수량2,
+    원가위안3: row.원가위안3, 최소오더수량3: row.최소오더수량3,
+    상태: row.상태||'대기', 메모: row.메모,
+    local_photos: row.사진url배열||[],
+    사진url배열_existing: row.사진url배열||[],
+    deleted_at: row.deleted_at || null,
+    created_at: row.created_at,
+  }));
+}
+async function patchRemoteItem(remote_id, fields){
+  if(!remote_id) return true;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${remote_id}`, {
+    method:"PATCH",
+    headers:{
+      "Authorization": `Bearer ${state.session?.access_token || SUPABASE_ANON_KEY}`,
+      "apikey": SUPABASE_ANON_KEY,
+      "Content-Type":"application/json"
+    },
+    body: JSON.stringify(fields)
+  });
+  return res.ok;
 }
 
 function numOrNull(v){
@@ -1370,17 +1274,19 @@ function bindSelectBar(){
   document.getElementById("bulkDeleteBtn").addEventListener("click", async ()=>{
     if(!state.selectedIds.length){ toast("선택된 항목이 없습니다"); return; }
     if(!confirm(`${state.selectedIds.length}개를 휴지통으로 이동할까요?`)) return;
+    const deletedAt = new Date().toISOString();
+    let failCount = 0;
     for(const id of state.selectedIds){
       const item = state.items.find(i=>i.local_id === id);
       if(!item) continue;
-      item.deleted_at = new Date().toISOString();
-      item.synced = false;
-      await dbPut(item);
+      const ok = await patchRemoteItem(item.remote_id, { deleted_at: deletedAt });
+      if(ok) item.deleted_at = deletedAt; else failCount++;
     }
     state.items = [...state.items];
     state.selectedIds = [];
     state.selectMode = false;
-    render(); toast("휴지통으로 이동했습니다");
+    render();
+    toast(failCount ? `${failCount}건 실패, 나머지는 휴지통으로 이동했습니다` : "휴지통으로 이동했습니다");
   });
   document.getElementById("exportBtn").addEventListener("click", async ()=>{
     if(!state.selectedIds.length){ toast("선택된 항목이 없습니다"); return; }
@@ -1394,18 +1300,19 @@ function bindSelectBar(){
     b.addEventListener("click", async ()=>{
       if(!state.selectedIds.length){ toast("선택된 항목이 없습니다"); return; }
       const newStatus = b.dataset.setstatus;
+      let failCount = 0;
       for(const id of state.selectedIds){
         const item = state.items.find(i=>i.local_id === id);
         if(!item) continue;
-        item.상태 = newStatus;
-        item.synced = false;
-        await dbPut(item);
+        const ok = await patchRemoteItem(item.remote_id, { 상태: newStatus });
+        if(ok) item.상태 = newStatus; else failCount++;
       }
       state.items = [...state.items];
       state.selectedIds = [];
       state.selectMode = false;
       state.statusDropdownOpen = false;
-      render(); toast(`${newStatus}으로 변경했습니다`);
+      render();
+      toast(failCount ? `${failCount}건 실패, 나머지는 변경했습니다` : `${newStatus}으로 변경했습니다`);
     });
   });
 }
@@ -1447,9 +1354,9 @@ function bindTrashSheet(){
     b.addEventListener("click", async ()=>{
       const item = state.items.find(i=>i.local_id === b.dataset.id);
       if(!item) return;
+      const ok = await patchRemoteItem(item.remote_id, { deleted_at: null });
+      if(!ok){ toast("복구 실패, 인터넷 연결을 확인해주세요"); return; }
       delete item.deleted_at;
-      item.synced = false;
-      await dbPut(item);
       render(); toast("복구되었습니다");
     });
   });
@@ -1483,7 +1390,6 @@ function bindTrashSheet(){
           }
         });
       }
-      await dbDelete(item.local_id);
       state.items = state.items.filter(i=>i.local_id !== item.local_id);
       render(); toast("완전히 삭제되었습니다");
     });
@@ -1503,60 +1409,10 @@ async function refreshIsAdmin(){
     state.isAdmin = !!data;
   } catch(e){ state.isAdmin = false; }
 }
-function openLoginModal(){
-  state.loginModalOpen = true;
-  state.loginEmail = ""; state.loginPassword = ""; state.loginError = "";
-  render();
-}
-function closeLoginModal(){ state.loginModalOpen = false; render(); }
-async function doLogin(){
-  if(!state.loginEmail || !state.loginPassword){
-    state.loginError = "이메일과 비밀번호를 입력해주세요"; render(); return;
-  }
-  state.loginLoading = true; render();
-  const { data, error } = await sb.auth.signInWithPassword({
-    email: state.loginEmail, password: state.loginPassword
-  });
-  state.loginLoading = false;
-  if(error){ state.loginError = "로그인 실패: 이메일 또는 비밀번호를 확인해주세요"; render(); return; }
-  state.session = data.session;
-  await refreshIsAdmin();
-  state.loginModalOpen = false;
-  render();
-  toast("로그인되었습니다. 동기화를 시작합니다");
-  runSync();
-}
 async function doLogout(){
   await sb.auth.signOut();
-  state.session = null; state.isAdmin = false;
+  state.session = null; state.isAdmin = false; state.items = [];
   render(); toast("로그아웃되었습니다");
-}
-function loginModalHtml(){
-  return `
-  <div class="sheet-backdrop open" id="loginBackdrop"></div>
-  <div class="sheet open" id="loginSheet" style="top:auto;max-height:65%;">
-    <div class="sheet-header">
-      <button class="sheet-btn cancel" id="loginCancel">취소</button>
-      <div class="sheet-title">동기화 로그인</div>
-      <div style="width:40px;"></div>
-    </div>
-    <div class="sheet-body">
-      <div class="field"><label>이메일</label><input id="loginEmailInput" type="email" value="${escapeAttr(state.loginEmail)}" placeholder="you@panicale.com" autocapitalize="off"></div>
-      <div class="field"><label>비밀번호</label><input id="loginPasswordInput" type="password" value="${escapeAttr(state.loginPassword)}" placeholder="비밀번호"></div>
-      ${state.loginError ? `<div style="color:var(--warn);font-size:13px;margin-bottom:10px;">${escapeHtml(state.loginError)}</div>` : ''}
-      <button class="cat-btn active" id="loginSubmitBtn" style="width:100%;padding:13px;font-size:15px;" ${state.loginLoading?'disabled':''}>
-        ${state.loginLoading ? '로그인 중…' : '로그인하고 동기화'}
-      </button>
-      <div style="font-size:12px;color:var(--ink-soft);margin-top:14px;text-align:center;">계정이 없으면 관리자에게 문의해주세요</div>
-    </div>
-  </div>`;
-}
-function bindLoginModal(){
-  document.getElementById("loginCancel").addEventListener("click", closeLoginModal);
-  document.getElementById("loginBackdrop").addEventListener("click", closeLoginModal);
-  document.getElementById("loginEmailInput").addEventListener("input", (e)=>{ state.loginEmail = e.target.value; });
-  document.getElementById("loginPasswordInput").addEventListener("input", (e)=>{ state.loginPassword = e.target.value; });
-  document.getElementById("loginSubmitBtn").addEventListener("click", doLogin);
 }
 
 /* ============== 사진 전체화면 뷰어 ============== */
@@ -1711,7 +1567,7 @@ function setupPullToRefresh(){
   const threshold = 70;
 
   document.addEventListener("touchstart", (e)=>{
-    if(window.scrollY === 0 && state.authed && !state.sheetOpen && !state.detailItem){
+    if(window.scrollY === 0 && state.session && !state.sheetOpen && !state.detailItem){
       startY = e.touches[0].clientY;
       pulling = true;
     }
@@ -1733,11 +1589,14 @@ function setupPullToRefresh(){
 
 /* ============== INIT ============== */
 async function init(){
-  await openDB();
-  state.items = await dbGetAll();
   await restoreSession();
   render();
-  if(state.session && navigator.onLine) runSync();
+  if(state.session){
+    try{
+      state.items = await fetchItems();
+    } catch(e){ toast("데이터를 불러오지 못했습니다. 인터넷 연결을 확인해주세요"); }
+    render();
+  }
   window.addEventListener("online", ()=>render());
   window.addEventListener("offline", ()=>render());
   setupPullToRefresh();
@@ -1748,12 +1607,11 @@ async function init(){
 const _origRender = render;
 render = function(){
   _origRender();
-  if(state.authed && state.sheetOpen) bindFormSheet();
-  if(state.authed && state.detailItem) bindDetailSheet();
-  if(state.authed && state.trashOpen) bindTrashSheet();
-  if(state.authed && state.photoViewer) bindPhotoViewer();
-  if(state.authed && state.loginModalOpen) bindLoginModal();
-  if(state.authed && state.selectMode) bindSelectBar();
+  if(state.session && state.sheetOpen) bindFormSheet();
+  if(state.session && state.detailItem) bindDetailSheet();
+  if(state.session && state.trashOpen) bindTrashSheet();
+  if(state.session && state.photoViewer) bindPhotoViewer();
+  if(state.session && state.selectMode) bindSelectBar();
 };
 
 init();
